@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Human Gateway · Backend Loop Demo</title>
+    <style>
+      :root {
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --ink: #18191c;
+        --sub: #5f6772;
+        --muted: #9299a3;
+        --line: #e8ebef;
+        --blue: #1772f6;
+        --blue-soft: #eaf3ff;
+        --green: #168a5b;
+        --green-soft: #eaf8f1;
+        --amber: #b97816;
+        --amber-soft: #fff6e5;
+        --red: #d94a45;
+        --red-soft: #fff1f0;
+        --radius: 8px;
+        --shadow: 0 14px 40px rgba(23, 42, 70, 0.07);
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .shell {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+      .topbar {
+        height: 62px;
+        background: rgba(255, 255, 255, 0.94);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 100%;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 750;
+      }
+      .mark {
+        display: grid;
+        width: 29px;
+        height: 29px;
+        place-items: center;
+        color: white;
+        background: var(--blue);
+        border-radius: 8px;
+      }
+      .brand small {
+        padding: 3px 7px;
+        color: #0d5dcc;
+        background: var(--blue-soft);
+        border-radius: 4px;
+        font-size: 11px;
+      }
+      .server {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .server-dot {
+        width: 7px;
+        height: 7px;
+        background: var(--green);
+        border-radius: 50%;
+      }
+      main {
+        padding: 42px 0 72px;
+      }
+      .intro {
+        max-width: 750px;
+        margin-bottom: 30px;
+      }
+      .eyebrow {
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+      }
+      h1 {
+        margin: 10px 0 13px;
+        font-size: clamp(30px, 5vw, 48px);
+        letter-spacing: -0.045em;
+        line-height: 1.15;
+      }
+      .intro p {
+        margin: 0;
+        color: var(--sub);
+        line-height: 1.8;
+      }
+      .stepper {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin: 28px 0;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 12px 13px;
+        color: var(--muted);
+        background: #f0f2f5;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .step span {
+        display: grid;
+        width: 23px;
+        height: 23px;
+        place-items: center;
+        color: #87909b;
+        background: white;
+        border-radius: 50%;
+        font-size: 11px;
+      }
+      .step.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+      .step.active span {
+        color: white;
+        background: var(--blue);
+      }
+      .step.done {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+      .step.done span {
+        color: white;
+        background: var(--green);
+      }
+      .panel {
+        padding: 22px;
+        margin-top: 18px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+      .panel-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .panel-head h2 {
+        margin: 0 0 5px;
+        font-size: 18px;
+        letter-spacing: -0.025em;
+      }
+      .panel-head p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      label {
+        display: grid;
+        gap: 7px;
+        color: var(--sub);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      textarea,
+      input {
+        width: 100%;
+        padding: 12px;
+        color: var(--ink);
+        background: white;
+        border: 1px solid #dce1e7;
+        border-radius: 6px;
+        outline: 0;
+      }
+      textarea:focus,
+      input:focus {
+        border-color: #98bfff;
+        box-shadow: 0 0 0 3px rgba(23, 114, 246, 0.08);
+      }
+      textarea {
+        min-height: 94px;
+        line-height: 1.65;
+        resize: vertical;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .primary,
+      .secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .primary {
+        color: white;
+        background: var(--blue);
+        border: 1px solid var(--blue);
+      }
+      .secondary {
+        color: var(--sub);
+        background: white;
+        border: 1px solid #dce1e7;
+      }
+      .primary:disabled,
+      .secondary:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .status {
+        display: none;
+        align-items: flex-start;
+        gap: 9px;
+        padding: 11px 12px;
+        margin-top: 15px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .status.show {
+        display: flex;
+      }
+      .status.info {
+        color: #3e5e8d;
+        background: var(--blue-soft);
+      }
+      .status.error {
+        color: var(--red);
+        background: var(--red-soft);
+      }
+      .status.success {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+      .hidden {
+        display: none !important;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+        gap: 18px;
+      }
+      .state-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 9px;
+        color: var(--amber);
+        background: var(--amber-soft);
+        border-radius: 5px;
+        font-weight: 750;
+      }
+      .badge.early {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+      .badge.supported {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        background: currentColor;
+        border-radius: 50%;
+      }
+      .facts {
+        display: grid;
+        gap: 10px;
+        margin: 18px 0 0;
+      }
+      .fact {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        color: var(--sub);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .fact::before {
+        flex: none;
+        width: 7px;
+        height: 7px;
+        margin-top: 7px;
+        background: var(--green);
+        border-radius: 50%;
+        content: "";
+      }
+      .frontier {
+        padding: 20px;
+        background: #fbfdff;
+        border: 1px solid #d5e5fb;
+        border-radius: var(--radius);
+      }
+      .frontier h3 {
+        margin: 12px 0 9px;
+        font-size: 20px;
+        letter-spacing: -0.035em;
+      }
+      .frontier p {
+        margin: 0;
+        color: var(--sub);
+        font-size: 13px;
+        line-height: 1.75;
+      }
+      .frontier-label {
+        color: var(--blue);
+        font:
+          700 11px/1.2 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+        letter-spacing: 0.05em;
+      }
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 13px;
+      }
+      .tag {
+        padding: 4px 7px;
+        color: #0d5dcc;
+        background: var(--blue-soft);
+        border-radius: 4px;
+        font-size: 11px;
+      }
+      .mission-card {
+        padding: 16px;
+        background: #fbfcfe;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .mission-card h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .mission-card p {
+        margin: 0;
+        color: var(--sub);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .mission-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .open {
+        color: var(--green);
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wide {
+        grid-column: 1 / -1;
+      }
+      .form-title {
+        margin: 0 0 18px;
+        font-size: 18px;
+      }
+      .receipt {
+        border-color: #bfe7d3;
+      }
+      .receipt h2 {
+        color: var(--green);
+      }
+      .receipt-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .receipt-item {
+        padding: 12px;
+        background: var(--soft);
+        border-radius: 6px;
+      }
+      .receipt-item small {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .receipt-item strong {
+        color: var(--sub);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      pre {
+        max-height: 360px;
+        padding: 14px;
+        overflow: auto;
+        margin: 15px 0 0;
+        color: #dce9ff;
+        background: #172234;
+        border-radius: 6px;
+        font:
+          11px/1.6 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      .footer-note {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+      @media (max-width: 760px) {
+        .stepper,
+        .grid,
+        .form-grid,
+        .receipt-grid {
+          grid-template-columns: 1fr;
+        }
+        .wide {
+          grid-column: auto;
+        }
+        .row {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .row .primary,
+        .row .secondary {
+          width: 100%;
+        }
+        .panel {
+          padding: 17px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell topbar-inner">
+        <div class="brand">
+          <span class="mark">H</span>Human Gateway <small>后端闭环 Demo</small>
+        </div>
+        <div class="server">
+          <span class="server-dot"></span><span id="serverText">API 未检查</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="intro">
+        <div class="eyebrow">BACKEND LOOP / LIVE CONTRACT</div>
+        <h1>先用一遍后端真正完成的闭环。</h1>
+        <p>
+          这个页面不依赖 Next.js，直接请求当前 API。输入一个问题，创建
+          Mission，提交一条真实经历，再查看 Evidence Grade、Knowledge State 和 Impact Receipt。
+        </p>
+      </section>
+
+      <div class="stepper" aria-label="闭环步骤">
+        <div class="step active" id="step1"><span>1</span>创建 Investigation</div>
+        <div class="step" id="step2"><span>2</span>创建 Evidence Mission</div>
+        <div class="step" id="step3"><span>3</span>提交 Evidence / Receipt</div>
+      </div>
+
+      <section class="panel" id="questionPanel">
+        <div class="panel-head">
+          <div>
+            <h2>1. 提出问题</h2>
+            <p>调用 POST /api/investigations</p>
+          </div>
+          <button class="secondary" id="resetButton" type="button">重置</button>
+        </div>
+        <label
+          >研究问题<textarea id="question" maxlength="500">
+AI Coding 实际改变了初级开发者哪些工作？</textarea>
+        </label>
+        <div class="row">
+          <span class="hint">默认使用 Golden Case，也可以替换成自己的问题。</span>
+          <button class="primary" id="createButton" type="button">开始求证 →</button>
+        </div>
+        <div class="status" id="questionStatus"></div>
+      </section>
+
+      <section class="panel hidden" id="investigationPanel">
+        <div class="panel-head">
+          <div>
+            <h2>Investigation 已创建</h2>
+            <p id="investigationId"></p>
+          </div>
+          <span class="badge" id="knowledgeBadge"><span class="dot"></span>尚待求证</span>
+        </div>
+        <div class="grid">
+          <div>
+            <div class="state-row">
+              <span id="evidenceCount">0 条真人 Evidence</span
+              ><span id="sourceCount">0 个公开来源</span>
+            </div>
+            <div class="facts" id="knownFacts"></div>
+            <div class="status info show" id="boundaryStatus"></div>
+          </div>
+          <aside class="frontier" id="frontierBox">
+            <div class="frontier-label">KNOWLEDGE FRONTIER</div>
+            <h3 id="gapTitle">现在还缺什么？</h3>
+            <p id="gapText">等待 Agent 返回 Evidence Gap。</p>
+            <div class="tag-list" id="participantTags"></div>
+            <div class="row">
+              <button class="primary" id="missionButton" type="button">创建求证任务 →</button>
+            </div>
+          </aside>
+        </div>
+        <div class="status" id="missionStatus"></div>
+      </section>
+
+      <section class="panel hidden" id="missionPanel">
+        <div class="panel-head">
+          <div>
+            <h2>Evidence Mission</h2>
+            <p>调用 POST /api/investigations/:id/missions</p>
+          </div>
+          <span class="badge open"><span class="dot"></span>OPEN</span>
+        </div>
+        <div class="mission-card">
+          <h3 id="missionTitle"></h3>
+          <p id="missionDescription"></p>
+          <div class="mission-meta">
+            <span id="missionQualification"></span><span>只记录一次真实经历</span>
+          </div>
+        </div>
+        <div class="row">
+          <button class="primary" id="evidenceButton" type="button">填写并提交 Evidence →</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="evidencePanel">
+        <div class="panel-head">
+          <div>
+            <h2>提交第一手经历</h2>
+            <p>调用 POST /api/missions/:id/evidence</p>
+          </div>
+        </div>
+        <form class="form-grid" id="evidenceForm">
+          <label
+            >你的身份<select id="participantType">
+              <option>学生开发者</option>
+              <option>实习生</option>
+              <option>0–3 年开发者</option>
+              <option>其他</option>
+            </select></label
+          >
+          <label
+            >发生时间<select id="timeframe">
+              <option>最近 24 小时</option>
+              <option>最近 7 天</option>
+              <option selected>最近 30 天</option>
+              <option>更早</option>
+            </select></label
+          >
+          <label class="wide"
+            >经历背景<textarea
+              id="experience"
+              required
+              placeholder="你在什么项目、工作或生活场景中经历了这件事？"
+            >
+我最近三个月在实习项目中持续使用 Claude Code。</textarea>
+          </label>
+          <label class="wide"
+            >具体是什么任务<textarea id="task" required placeholder="发生变化的任务、步骤或场景？">
+接口测试、异常场景和边界条件</textarea>
+          </label>
+          <label class="wide"
+            >AI 具体做了什么<textarea
+              id="aiRole"
+              required
+              placeholder="AI 接手、生成或改变了哪个环节？"
+            >
+Claude Code 生成测试草稿和常见异常分支。</textarea>
+          </label>
+          <label class="wide"
+            >你最后负责了什么判断<textarea
+              id="humanJudgment"
+              required
+              placeholder="你如何检查、修正或决定最终结果？"
+            >
+我检查业务语义、边界条件和异常场景是否符合真实接口。</textarea>
+          </label>
+          <label class="wide"
+            >相关材料（可选）<input
+              id="artifactUrl"
+              type="url"
+              placeholder="https://example.com/your-artifact"
+          /></label>
+          <div class="row wide">
+            <span class="hint">E0 / E1 / E2 由后端判断，页面不自行推断。</span
+            ><button class="primary" type="submit" id="submitButton">提交真实经历</button>
+          </div>
+        </form>
+        <div class="status" id="evidenceStatus"></div>
+      </section>
+
+      <section class="panel receipt hidden" id="receiptPanel">
+        <div class="panel-head">
+          <div>
+            <h2>Impact Receipt 已生成</h2>
+            <p>这是后端返回的正式 Receipt，不是前端推断。</p>
+          </div>
+        </div>
+        <div class="receipt-grid">
+          <div class="receipt-item">
+            <small>Evidence Grade</small><strong id="receiptGrade"></strong>
+          </div>
+          <div class="receipt-item">
+            <small>是否被接受</small><strong id="receiptAccepted"></strong>
+          </div>
+          <div class="receipt-item">
+            <small>Knowledge State</small><strong id="receiptState"></strong>
+          </div>
+          <div class="receipt-item">
+            <small>受影响 Claim</small><strong id="receiptClaim"></strong>
+          </div>
+        </div>
+        <div class="status success show" id="receiptSummary"></div>
+        <pre id="receiptJson"></pre>
+        <p class="footer-note">
+          如果这里能看到 `record`、`receipt`、`investigation` 三部分，说明后端闭环已经完整跑通。
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE = (
+        new URLSearchParams(location.search).get("api") || "http://localhost:3000"
+      ).replace(/\/$/, "");
+      const state = { investigation: null, mission: null };
+      const $ = (id) => document.getElementById(id);
+
+      function setStep(current) {
+        [1, 2, 3].forEach((step) => {
+          const node = $("step" + step);
+          node.classList.toggle("active", step === current);
+          node.classList.toggle("done", step < current);
+        });
+      }
+
+      function showStatus(id, message, type = "info") {
+        const node = $(id);
+        node.className = "status show " + type;
+        node.textContent = message;
+      }
+
+      function hide(id) {
+        $(id).classList.add("hidden");
+      }
+      function show(id) {
+        $(id).classList.remove("hidden");
+      }
+
+      async function api(path, options = {}) {
+        let response;
+        try {
+          response = await fetch(API_BASE + path, {
+            ...options,
+            headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+          });
+        } catch {
+          throw new Error("无法连接后端，请确认 http://localhost:3000 已启动。");
+        }
+        const body = await response.json().catch(() => null);
+        if (!response.ok)
+          throw new Error(body?.error?.message || `请求失败：HTTP ${response.status}`);
+        return body;
+      }
+
+      function statusLabel(status) {
+        return (
+          {
+            UNRESOLVED: "尚待求证",
+            EARLY_EVIDENCE: "已有早期证据",
+            SUPPORTED_WITH_LIMITATIONS: "有限支持",
+          }[status] || status
+        );
+      }
+
+      function renderInvestigation(inv) {
+        state.investigation = inv;
+        show("investigationPanel");
+        $("investigationId").textContent = "ID：" + inv.id;
+        $("knowledgeBadge").innerHTML =
+          `<span class="dot"></span>${statusLabel(inv.knowledgeState.status)}`;
+        $("knowledgeBadge").className =
+          "badge " +
+          (inv.knowledgeState.status === "EARLY_EVIDENCE"
+            ? "early"
+            : inv.knowledgeState.status === "SUPPORTED_WITH_LIMITATIONS"
+              ? "supported"
+              : "");
+        $("evidenceCount").textContent = `${inv.knowledgeState.evidenceCount} 条真人 Evidence`;
+        $("sourceCount").textContent =
+          `${inv.searches.zhihu.items.length + inv.searches.global.items.length} 个公开来源`;
+        $("knownFacts").innerHTML = (inv.evidenceState.known || [])
+          .map((fact) => `<div class="fact">${fact}</div>`)
+          .join("");
+        const gap = inv.evidenceState.nextGap;
+        if (!gap) {
+          $("frontierBox").innerHTML =
+            `<div class="frontier-label">KNOWLEDGE FRONTIER</div><h3>当前没有可参与任务</h3><p>${inv.evidenceState.gapSuitability?.reason || "Agent 暂未生成适合真人补充的 Evidence Gap。"}</p>`;
+          return;
+        }
+        $("gapText").textContent = gap.missingObservation;
+        $("participantTags").innerHTML = gap.targetParticipants
+          .map((item) => `<span class="tag">${item}</span>`)
+          .join("");
+        $("boundaryStatus").textContent = `为什么还缺：${gap.whyUnresolved}`;
+        $("missionButton").disabled = false;
+      }
+
+      $("serverText").textContent = "API：" + API_BASE;
+      $("createButton").addEventListener("click", async () => {
+        const question = $("question").value.trim();
+        if (!question) return showStatus("questionStatus", "请先输入问题。", "error");
+        $("createButton").disabled = true;
+        showStatus("questionStatus", "正在搜索知乎与全网，并划定 Knowledge Boundary…");
+        try {
+          const inv = await api("/api/investigations", {
+            method: "POST",
+            body: JSON.stringify({ question }),
+          });
+          renderInvestigation(inv);
+          setStep(2);
+          showStatus("questionStatus", "Investigation 创建成功。", "success");
+        } catch (error) {
+          showStatus("questionStatus", error.message, "error");
+        } finally {
+          $("createButton").disabled = false;
+        }
+      });
+
+      $("missionButton").addEventListener("click", async () => {
+        if (!state.investigation) return;
+        $("missionButton").disabled = true;
+        showStatus("missionStatus", "正在创建 OPEN Mission…");
+        try {
+          const inv = await api(
+            `/api/investigations/${encodeURIComponent(state.investigation.id)}/missions`,
+            { method: "POST", body: "{}" },
+          );
+          state.investigation = inv;
+          state.mission = inv.missions[inv.missions.length - 1];
+          if (!state.mission) throw new Error("后端没有返回 Mission。");
+          $("missionTitle").textContent = state.mission.title;
+          $("missionDescription").textContent = state.mission.description;
+          $("missionQualification").textContent =
+            "参与资格：" + state.mission.qualification.join("、");
+          show("missionPanel");
+          showStatus("missionStatus", "Mission 创建成功，状态为 OPEN。", "success");
+          setStep(3);
+        } catch (error) {
+          showStatus("missionStatus", error.message, "error");
+          $("missionButton").disabled = false;
+        }
+      });
+
+      $("evidenceButton").addEventListener("click", () => {
+        show("evidencePanel");
+        $("evidencePanel").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      $("evidenceForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!state.mission) return showStatus("evidenceStatus", "请先创建 Mission。", "error");
+        const submission = {
+          statement: `${$("task").value.trim()}；${$("aiRole").value.trim()}；${$("humanJudgment").value.trim()}`,
+          participantType: $("participantType").value,
+          experience: `${$("timeframe").value}。${$("experience").value.trim()}`,
+          task: $("task").value.trim(),
+          aiRole: $("aiRole").value.trim(),
+          humanJudgment: $("humanJudgment").value.trim(),
+        };
+        const artifact = $("artifactUrl").value.trim();
+        if (artifact) submission.artifactUrl = artifact;
+        $("submitButton").disabled = true;
+        showStatus("evidenceStatus", "后端正在校验、评级并重新评估 Knowledge State…");
+        try {
+          const result = await api(
+            `/api/missions/${encodeURIComponent(state.mission.id)}/evidence`,
+            { method: "POST", body: JSON.stringify(submission) },
+          );
+          const receipt = result.receipt;
+          renderInvestigation(result.investigation);
+          $("receiptGrade").textContent = receipt.grade;
+          $("receiptAccepted").textContent = receipt.accepted
+            ? "accepted / 已进入影响链路"
+            : "rejected / 暂未影响结论";
+          $("receiptState").textContent = `${receipt.stateBefore} → ${receipt.stateAfter}`;
+          $("receiptClaim").textContent = receipt.affectedClaimId;
+          $("receiptSummary").textContent = receipt.impactSummary;
+          $("receiptJson").textContent = JSON.stringify(result, null, 2);
+          show("receiptPanel");
+          showStatus("evidenceStatus", "Evidence 提交成功，Impact Receipt 已返回。", "success");
+          $("receiptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (error) {
+          showStatus("evidenceStatus", error.message, "error");
+        } finally {
+          $("submitButton").disabled = false;
+        }
+      });
+
+      $("resetButton").addEventListener("click", () => location.reload());
+      api("/health")
+        .then(() => {
+          $("serverText").textContent = "API 在线 · " + API_BASE;
+        })
+        .catch(() => {
+          $("serverText").textContent = "API 未连接 · " + API_BASE;
+        });
+    </script>
+  </body>
+</html>

@@ -260,7 +260,34 @@ export interface MockFeedItem extends InvestigationListItem {
   discussionCount: number;
   firstHandCount: number;
   topic: string;
+  claims: MockClaim[];
+  conflictText: string;
+  gapText: string;
 }
+
+export interface MockClaim {
+  id: string;
+  text: string;
+  supportCount: number;
+  opposeCount: number;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+}
+
+export type ContributionType = "VIEWPOINT" | "COUNTEREXAMPLE" | "EVIDENCE";
+
+export interface MockContribution {
+  id: string;
+  investigationId: string;
+  type: ContributionType;
+  author: string;
+  summary: string;
+  createdAt: string;
+  grade?: string;
+  impact?: string;
+  accepted?: boolean;
+}
+
+const emptyClaims: MockClaim[] = [];
 
 export const MOCK_FEED_ITEMS: MockFeedItem[] = [
   {
@@ -277,6 +304,24 @@ export const MOCK_FEED_ITEMS: MockFeedItem[] = [
     discussionCount: 18,
     firstHandCount: 0,
     topic: "AI",
+    claims: [
+      {
+        id: "mock-claim-1",
+        text: "测试、调试、文档等具体编码任务正在转向 AI 生成 + 人工检查",
+        supportCount: 5,
+        opposeCount: 1,
+        confidence: "MEDIUM",
+      },
+      {
+        id: "mock-claim-2",
+        text: "初级开发者岗位总量已经明显减少",
+        supportCount: 2,
+        opposeCount: 4,
+        confidence: "LOW",
+      },
+    ],
+    conflictText: "同一现象有两种解释：是任务结构变化，还是岗位总量变化，公开资料无法区分。",
+    gapText: "缺少初级开发者本人最近一次真实任务变化的记录",
   },
   {
     id: "mock-ai-learning",
@@ -291,8 +336,83 @@ export const MOCK_FEED_ITEMS: MockFeedItem[] = [
     discussionCount: 12,
     firstHandCount: 4,
     topic: "教育",
+    claims: [
+      {
+        id: "mock-claim-3",
+        text: "AI 能缩短资料理解和整理的时间",
+        supportCount: 9,
+        opposeCount: 1,
+        confidence: "HIGH",
+      },
+      {
+        id: "mock-claim-4",
+        text: "AI 会自动提升长期记忆效果",
+        supportCount: 2,
+        opposeCount: 6,
+        confidence: "LOW",
+      },
+    ],
+    conflictText: "短期理解速度的提升，是否等于长期学习效果的提升，仍存在明显分歧。",
+    gapText: "缺少同一学习者使用前后的对照记录",
   },
 ];
+
+export const MOCK_CONTRIBUTIONS: Record<string, MockContribution[]> = {
+  "mock-ai-coding": [
+    {
+      id: "mock-c-1",
+      investigationId: "mock-ai-coding",
+      type: "VIEWPOINT",
+      author: "匿名用户",
+      summary: "我所在的团队把单元测试交给 AI 起草，但边界用例仍由人工补充。",
+      createdAt: "2026-09-13T06:10:00.000Z",
+    },
+    {
+      id: "mock-c-2",
+      investigationId: "mock-ai-coding",
+      type: "COUNTEREXAMPLE",
+      author: "后端老张",
+      summary: "在金融合规场景里，AI 生成的测试无法直接使用，仍需人工从零设计。",
+      createdAt: "2026-09-13T05:40:00.000Z",
+    },
+    {
+      id: "mock-c-3",
+      investigationId: "mock-ai-coding",
+      type: "EVIDENCE",
+      author: "实习生 A",
+      summary: "提交了自己三个月的实习任务记录，说明测试用例的起草方式变化。",
+      createdAt: "2026-09-13T05:05:00.000Z",
+      grade: "E1_FIRST_HAND",
+      impact: "推动状态 UNRESOLVED → EARLY_EVIDENCE",
+      accepted: true,
+    },
+  ],
+  "mock-ai-learning": [
+    {
+      id: "mock-c-4",
+      investigationId: "mock-ai-learning",
+      type: "EVIDENCE",
+      author: "某大学生",
+      summary: "记录了一次用 AI 整理教材后自测的学习过程，并说明哪些部分仍需自己重写。",
+      createdAt: "2026-09-13T04:50:00.000Z",
+      grade: "E1_FIRST_HAND",
+      impact: "推动状态 UNRESOLVED → EARLY_EVIDENCE",
+      accepted: true,
+    },
+    {
+      id: "mock-c-5",
+      investigationId: "mock-ai-learning",
+      type: "COUNTEREXAMPLE",
+      author: "备考者小林",
+      summary: "连续使用 AI 总结后，做题正确率没有提高，反而更依赖提示。",
+      createdAt: "2026-09-13T04:20:00.000Z",
+    },
+  ],
+};
+
+export function listMockContributions(investigationId: string): MockContribution[] {
+  return MOCK_CONTRIBUTIONS[investigationId] ?? [];
+}
 
 const mockInvestigationStore: Investigation[] = [...MOCK_INVESTIGATIONS];
 const mockFeedStore: MockFeedItem[] = [...MOCK_FEED_ITEMS];
@@ -353,6 +473,9 @@ export function mockInvestigationToListItem(investigation: Investigation): MockF
     discussionCount: 0,
     firstHandCount: 0,
     topic: "推荐",
+    claims: emptyClaims,
+    conflictText: "公开信息来源不足，当前还没有形成可比较的分歧。",
+    gapText: "缺少与该问题直接相关的第一手经历",
   };
 }
 

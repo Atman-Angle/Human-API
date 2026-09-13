@@ -40,8 +40,11 @@ import type {
 import { ApiClientError } from "@/lib/api-client";
 import {
   createMockInvestigation,
+  listMockContributions,
   listMockInvestigations,
   mockInvestigationToListItem,
+  type ContributionType,
+  type MockContribution,
   type MockFeedItem,
 } from "@/lib/mock-data";
 
@@ -193,6 +196,28 @@ function FeedCard({ item, onOpen }: { item: MockFeedItem; onOpen: (id: string) =
         </div>
         <h2>{item.question}</h2>
         <p className="feed-excerpt">{item.excerpt}</p>
+        <div className="claim-preview-list">
+          {item.claims.map((claim) => (
+            <div className="claim-preview-item" key={claim.id}>
+              <span className={`claim-confidence claim-${claim.confidence.toLowerCase()}`}>
+                {claim.confidence === "HIGH"
+                  ? "较可信"
+                  : claim.confidence === "MEDIUM"
+                    ? "待验证"
+                    : "证据不足"}
+              </span>
+              <p>{claim.text}</p>
+              <div className="claim-counts">
+                <span className="claim-support">支持 {claim.supportCount}</span>
+                <span className="claim-oppose">反驳 {claim.opposeCount}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="feed-conflict">
+          <span>主要分歧</span>
+          <p>{item.conflictText}</p>
+        </div>
         <div className="feed-stats">
           <span>
             <CheckCircle2 size={15} />
@@ -235,7 +260,7 @@ function FeedCard({ item, onOpen }: { item: MockFeedItem; onOpen: (id: string) =
         <p className="agent-gap">
           当前缺口
           <br />
-          <b>{item.firstHandCount === 0 ? "真实开发者经历" : "更多反例与边界"}</b>
+          <b>{item.gapText}</b>
         </p>
         <button className="agent-open" type="button" onClick={() => onOpen(item.id)}>
           {actionLabel}
@@ -256,12 +281,14 @@ function FeedHome({
   error,
   onOpen,
   onAsk,
+  onMine,
 }: {
   items: MockFeedItem[];
   loading: boolean;
   error: string | null;
   onOpen: (id: string) => void;
   onAsk: () => void;
+  onMine: () => void;
 }) {
   const [activeTopic, setActiveTopic] = useState("推荐");
   const visibleItems =
@@ -321,7 +348,7 @@ function FeedHome({
         </div>
         {visibleItems.length > 0 ? (
           <>
-            <button className="load-more" type="button" disabled>
+            <button className="load-more" type="button" onClick={onMine}>
               ↓ 加载更多
             </button>
             <p className="load-more-end">— 没有更多了 —</p>
@@ -824,6 +851,231 @@ export function FrontierPanel({
   );
 }
 
+const contributionLabels: Record<ContributionType, string> = {
+  VIEWPOINT: "补充观点",
+  COUNTEREXAMPLE: "提供反例",
+  EVIDENCE: "提交第一手经历",
+};
+
+const contributionHints: Record<ContributionType, string> = {
+  VIEWPOINT: "表达看法、补充背景，不直接改变 Knowledge State。",
+  COUNTEREXAMPLE: "说明当前 Claim 在什么场景下不成立。",
+  EVIDENCE: "记录一次亲身经历，进入 Evidence 评估链路。",
+};
+
+function ContributionComposer({
+  type,
+  onClose,
+  onSubmit,
+}: {
+  type: ContributionType;
+  onClose: () => void;
+  onSubmit: (text: string) => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div className="drawer-layer" role="presentation">
+      <button className="drawer-backdrop" type="button" onClick={onClose} aria-label="关闭" />
+      <aside className="mission-drawer" role="dialog" aria-modal="true">
+        <header className="drawer-header">
+          <div>
+            <span className="drawer-kicker">{contributionLabels[type]}</span>
+            <h2>你正在推进这个问题</h2>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="关闭">
+            <X size={20} />
+          </button>
+        </header>
+        <div className="drawer-content">
+          <div className="mission-brief">
+            <Sparkles size={18} />
+            <p>{contributionHints[type]}</p>
+          </div>
+          <label className="field-label field-wide" style={{ marginTop: 18 }}>
+            <span>{contributionLabels[type]}</span>
+            <textarea
+              rows={6}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder={
+                type === "COUNTEREXAMPLE"
+                  ? "例如：在我遇到的场景里，这条结论并不成立，因为……"
+                  : type === "EVIDENCE"
+                    ? "描述一次具体经历：发生了什么、什么时候、你扮演什么角色、哪些地方不确定"
+                    : "补充你的观点或背景信息"
+              }
+            />
+          </label>
+          <div className="drawer-submit-row">
+            <span>
+              <ShieldCheck size={15} />
+              {type === "EVIDENCE"
+                ? "提交后由 Agent 评估，不以你的判断为准"
+                : "不会直接改变 Knowledge State"}
+            </span>
+            <button
+              className="primary-button"
+              type="button"
+              disabled={text.trim().length < 2}
+              onClick={() => onSubmit(text.trim())}
+            >
+              <Send size={16} />
+              提交
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function ContributionsSection({ contributions }: { contributions: MockContribution[] }) {
+  if (contributions.length === 0) {
+    return (
+      <section className="content-section">
+        <div className="section-heading">
+          <span className="section-icon known">
+            <Users size={16} />
+          </span>
+          <div>
+            <h2>社区贡献</h2>
+            <p>还没有人参与推进这个问题</p>
+          </div>
+        </div>
+        <div className="console-empty">成为第一个贡献者</div>
+      </section>
+    );
+  }
+  return (
+    <section className="content-section">
+      <div className="section-heading">
+        <span className="section-icon known">
+          <Users size={16} />
+        </span>
+        <div>
+          <h2>社区贡献</h2>
+          <p>谁用什么方式推进了这个问题</p>
+        </div>
+      </div>
+      <div className="contribution-list">
+        {contributions.map((item) => (
+          <article className="contribution-item" key={item.id}>
+            <span className={`contribution-type type-${item.type.toLowerCase()}`}>
+              {contributionLabels[item.type]}
+            </span>
+            <div className="contribution-body">
+              <h4>{item.summary}</h4>
+              <div className="contribution-meta">
+                <span>@{item.author}</span>
+                <span>{formatRelativeTime(item.createdAt)}</span>
+                {item.grade ? <span>{gradeLabels[item.grade as EvidenceGrade]}</span> : null}
+                {item.accepted ? <span className="contribution-impact">已进入求证链路</span> : null}
+                {item.impact ? <span className="contribution-impact">{item.impact}</span> : null}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function MyInvestigationsConsole({
+  items,
+  onOpen,
+  onClose,
+}: {
+  items: MockFeedItem[];
+  onOpen: (id: string) => void;
+  onClose: () => void;
+}) {
+  const evidenceCount = items.reduce((sum, item) => sum + item.evidenceCount, 0);
+  const firstHandCount = items.reduce((sum, item) => sum + item.firstHandCount, 0);
+  const unresolved = items.filter((item) => item.knowledgeState === "UNRESOLVED").length;
+  return (
+    <div className="console-overlay">
+      <main className="console-page">
+        <div className="console-container">
+          <header className="console-head">
+            <div>
+              <h1>我的求证</h1>
+              <p>追踪你发起和参与的问题，以及这些贡献改变了什么</p>
+            </div>
+            <button className="console-close" type="button" onClick={onClose} aria-label="关闭">
+              <X size={16} />
+            </button>
+          </header>
+          <div className="console-stats">
+            <div className="console-stat">
+              <strong>{items.length}</strong>
+              <span>我发起的问题</span>
+            </div>
+            <div className="console-stat">
+              <strong>{firstHandCount}</strong>
+              <span>第一手经历</span>
+            </div>
+            <div className="console-stat">
+              <strong>{evidenceCount}</strong>
+              <span>关联 Evidence</span>
+            </div>
+            <div className="console-stat">
+              <strong>{unresolved}</strong>
+              <span>仍在推进</span>
+            </div>
+          </div>
+          <section className="console-section">
+            <h2>我参与的问题</h2>
+            <div className="console-list">
+              {items.map((item) => (
+                <button
+                  className="console-row"
+                  type="button"
+                  key={item.id}
+                  onClick={() => onOpen(item.id)}
+                >
+                  <div>
+                    <h3>{item.question}</h3>
+                    <p>
+                      {knowledgeLabels[item.knowledgeState]} · {item.evidenceCount} 条证据 ·{" "}
+                      {item.missionCount} 个 Mission
+                    </p>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="console-section">
+            <h2>我的贡献</h2>
+            <div className="console-list">
+              {items.flatMap((item) =>
+                listMockContributions(item.id)
+                  .slice(0, 2)
+                  .map((contribution) => (
+                    <button
+                      className="console-row"
+                      type="button"
+                      key={contribution.id}
+                      onClick={() => onOpen(item.id)}
+                    >
+                      <div>
+                        <h3>{contribution.summary}</h3>
+                        <p>
+                          {contributionLabels[contribution.type]} · @{contribution.author}
+                          {contribution.impact ? ` · ${contribution.impact}` : ""}
+                        </p>
+                      </div>
+                      <ArrowRight size={16} />
+                    </button>
+                  )),
+              )}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
 export function InvestigationView({
   investigation,
   onJoin,
@@ -843,6 +1095,30 @@ export function InvestigationView({
   );
   const [showAllSources, setShowAllSources] = useState(false);
   const visibleSources = showAllSources ? sources : sources.slice(0, 4);
+  const [contributions, setContributions] = useState<MockContribution[]>(() =>
+    listMockContributions(investigation.id),
+  );
+  const [composerType, setComposerType] = useState<ContributionType | null>(null);
+
+  function handleContribution(text: string) {
+    if (!composerType) return;
+    const nowValue = new Date().toISOString();
+    setContributions((items) => [
+      {
+        id: `mock-local-${Date.now()}`,
+        investigationId: investigation.id,
+        type: composerType,
+        author: "我",
+        summary: text,
+        createdAt: nowValue,
+        ...(composerType === "EVIDENCE"
+          ? { grade: "E1_FIRST_HAND", accepted: true, impact: "已进入待评估队列" }
+          : {}),
+      },
+      ...items,
+    ]);
+    setComposerType(null);
+  }
 
   return (
     <main className="workspace-page">
@@ -859,6 +1135,43 @@ export function InvestigationView({
             <span>{investigation.knowledgeState.evidenceCount} 条真人 Evidence</span>
             <span>{sources.length} 个公开来源</span>
           </div>
+        </section>
+
+        <section className="contribute-bar" aria-label="参与方式">
+          <button
+            className="contribute-entry"
+            type="button"
+            onClick={() => setComposerType("VIEWPOINT")}
+          >
+            <strong>
+              <MessageCircle size={14} />
+              补充观点
+            </strong>
+            <small>表达看法、补充背景，不直接改变 Knowledge State</small>
+          </button>
+          <button
+            className="contribute-entry"
+            type="button"
+            onClick={() => setComposerType("COUNTEREXAMPLE")}
+          >
+            <strong>
+              <CircleAlert size={14} />
+              提供反例
+            </strong>
+            <small>指出当前 Claim 在哪些场景下不成立</small>
+          </button>
+          <button
+            className="contribute-entry evidence"
+            type="button"
+            onClick={onJoin}
+            disabled={creatingMission}
+          >
+            <strong>
+              <CheckCircle2 size={14} />
+              提交第一手经历
+            </strong>
+            <small>进入 Evidence 评估链路，影响 Knowledge State</small>
+          </button>
         </section>
 
         {outcome ? (
@@ -946,6 +1259,8 @@ export function InvestigationView({
               </ul>
             </section>
 
+            <ContributionsSection contributions={contributions} />
+
             <section className="content-section sources-section">
               <div className="section-heading source-heading">
                 <span className="section-icon source">
@@ -983,6 +1298,13 @@ export function InvestigationView({
           />
         </div>
       </div>
+      {composerType ? (
+        <ContributionComposer
+          type={composerType}
+          onClose={() => setComposerType(null)}
+          onSubmit={handleContribution}
+        />
+      ) : null}
     </main>
   );
 }
@@ -1003,7 +1325,45 @@ export default function HomePage() {
     listMockInvestigations(),
   );
   const [showComposer, setShowComposer] = useState(false);
+  const [showConsole, setShowConsole] = useState(false);
   const [activeNav, setActiveNav] = useState<"home" | "search" | "mine">("home");
+
+  useEffect(() => {
+    function syncFromHash() {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "search") {
+        setShowComposer(true);
+        setShowConsole(false);
+        setActiveNav("search");
+        return;
+      }
+      if (hash === "mine") {
+        setShowConsole(true);
+        setShowComposer(false);
+        setActiveNav("mine");
+        return;
+      }
+      setShowComposer(false);
+      setShowConsole(false);
+      setActiveNav("home");
+    }
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
+
+  function setPanel(panel: "home" | "search" | "mine") {
+    window.history.replaceState(null, "", panel === "home" ? "/" : `/#${panel}`);
+    setShowComposer(panel === "search");
+    setShowConsole(panel === "mine");
+    setActiveNav(panel);
+  }
+
+  function goHome() {
+    setPanel("home");
+    router.push("/");
+  }
 
   async function handleCreateInvestigation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1026,19 +1386,10 @@ export default function HomePage() {
   return (
     <div className="app-shell">
       <AppHeader
-        onReset={() => {
-          router.push("/");
-          setActiveNav("home");
-        }}
+        onReset={goHome}
         hasInvestigation={false}
-        onSearch={() => {
-          setShowComposer(true);
-          setActiveNav("search");
-        }}
-        onMyInvestigations={() => {
-          setShowComposer(true);
-          setActiveNav("mine");
-        }}
+        onSearch={() => setPanel("search")}
+        onMyInvestigations={() => setPanel("mine")}
         activeNav={activeNav}
       />
       <FeedHome
@@ -1046,7 +1397,8 @@ export default function HomePage() {
         loading={false}
         error={null}
         onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
-        onAsk={() => setShowComposer(true)}
+        onAsk={() => setPanel("search")}
+        onMine={() => setPanel("mine")}
       />
       {showComposer ? (
         <div className="composer-overlay">
@@ -1057,9 +1409,19 @@ export default function HomePage() {
             onSubmit={handleCreateInvestigation}
             loading={creatingInvestigation}
             error={pageError}
-            onClose={() => setShowComposer(false)}
+            onClose={() => setPanel("home")}
           />
         </div>
+      ) : null}
+      {showConsole ? (
+        <MyInvestigationsConsole
+          items={investigations}
+          onOpen={(id) => {
+            setPanel("home");
+            router.push(`/investigation/${encodeURIComponent(id)}`);
+          }}
+          onClose={() => setPanel("home")}
+        />
       ) : null}
     </div>
   );

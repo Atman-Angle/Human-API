@@ -88,7 +88,13 @@ export default function InvestigationClient({ investigationId }: { investigation
   if (loading) {
     return (
       <div className="app-shell">
-        <AppHeader onReset={() => router.push("/")} hasInvestigation />
+        <AppHeader
+          onReset={() => router.push("/")}
+          hasInvestigation
+          onSearch={() => router.push("/#search")}
+          onMyInvestigations={() => router.push("/#mine")}
+          activeNav="home"
+        />
         <main className="workspace-page workspace-loading">
           <div className="loading-card" aria-live="polite">
             <LoaderCircle className="spin" size={22} />
@@ -102,7 +108,13 @@ export default function InvestigationClient({ investigationId }: { investigation
   if (!investigation) {
     return (
       <div className="app-shell">
-        <AppHeader onReset={() => router.push("/")} hasInvestigation />
+        <AppHeader
+          onReset={() => router.push("/")}
+          hasInvestigation
+          onSearch={() => router.push("/#search")}
+          onMyInvestigations={() => router.push("/#mine")}
+          activeNav="home"
+        />
         <main className="workspace-page workspace-loading">
           <div className="loading-card loading-card-error" role="alert">
             <CircleAlert size={22} />
@@ -121,7 +133,13 @@ export default function InvestigationClient({ investigationId }: { investigation
 
   return (
     <div className="app-shell">
-      <AppHeader onReset={() => router.push("/")} hasInvestigation />
+      <AppHeader
+        onReset={() => router.push("/")}
+        hasInvestigation
+        onSearch={() => router.push("/#search")}
+        onMyInvestigations={() => router.push("/#mine")}
+        activeNav="home"
+      />
       <InvestigationView
         investigation={investigation}
         onJoin={handleJoinMission}

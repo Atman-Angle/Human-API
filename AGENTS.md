@@ -27,20 +27,86 @@
 
 以下内容只能有一个权威来源：
 
-| 内容 | 唯一事实源 |
-|---|---|
-| 项目范围 / Non-Goals | `docs/PROJECT_LOCK.md` |
-| 模块边界 | `docs/ARCHITECTURE.md` |
-| 共享 DTO / Enum / Schema | `packages/contracts` |
-| 接口说明 | `docs/API_CONTRACT.md` |
-| 当前任务 Owner | `TASKS.md` |
-| 协作与合并规则 | `CONTRIBUTING.md` |
+| 内容                     | 唯一事实源             |
+| ------------------------ | ---------------------- |
+| 项目范围 / Non-Goals     | `docs/PROJECT_LOCK.md` |
+| 模块边界                 | `docs/ARCHITECTURE.md` |
+| 共享 DTO / Enum / Schema | `packages/contracts`   |
+| 接口说明                 | `docs/API_CONTRACT.md` |
+| 当前任务 Owner           | `TASKS.md`             |
+| 协作与合并规则           | `CONTRIBUTING.md`      |
 
 禁止为同一概念创建第二套事实源。
 
 ---
 
-## 3. 最重要规则：创建新实现前必须先全仓搜索
+## 3. Product Authority
+
+Human Gateway 不是一次性求证工具，而是建立在知乎已有问题、话题、内容和用户网络之上的 Agent 驱动求证子社区。
+
+所有开发必须服务于：
+
+```text
+Investigation
+→ Frontier
+→ Mission
+→ Participation
+→ Evidence
+→ Re-evaluation
+→ Impact
+```
+
+如果一个功能不能解释它服务于这条链中的哪一步，默认不要新增。普通问答、通用 Feed、点赞、评论、排行榜、积分经济不属于当前产品范围。
+
+---
+
+## 4. Community Architecture
+
+创建以下对象前必须全仓搜索：
+
+- Investigation
+- Claim
+- KnowledgeState
+- EvidenceGap
+- Mission
+- Evidence
+- ImpactReceipt
+- Repository
+- Service
+- DTO
+
+必须先检查：
+
+1. `packages/contracts` 是否已有共享定义；
+2. 是否已有同名或相近职责实现；
+3. 是否已有唯一 Authority；
+4. 是否应扩展已有实现。
+
+禁止创建第二套同职责实现。Community 负责 Mission Lifecycle、Participation、Evidence Intake 与 Impact Receipt，但不得重新实现 Evidence Grade 或 Agent Re-evaluation。
+
+---
+
+## 5. Shared Contract
+
+Frontend / Backend 都不得创建并行 DTO。
+
+所有 shared language、DTO、Enum、Schema、Status 与 API Projection 必须来自：
+
+```text
+packages/contracts
+```
+
+如果接口或共享数据结构需要变化：
+
+1. 先改 `packages/contracts`
+2. 再更新 `docs/API_CONTRACT.md`
+3. 再改 backend / application orchestration
+4. 再改 frontend
+5. 再改测试
+
+---
+
+## 6. 创建新实现前必须搜索
 
 在新增以下任何内容之前：
 
@@ -59,14 +125,7 @@
 - API DTO
 - 业务函数
 
-必须先：
-
-1. 搜索整个仓库是否已有同名或相近职责实现；
-2. 检查 `packages/contracts`；
-3. 检查目标模块是否已有类似逻辑；
-4. 优先扩展已有实现；
-5. 如果发现两套相似实现，不得创建第三套；
-6. 必须报告重复，并选择已有 Authority。
+必须先完成第 4 节的全仓搜索，并确认目标模块与 Authority。
 
 默认原则：
 
@@ -74,9 +133,9 @@
 
 ---
 
-## 4. 模块边界
+## 7. 模块边界
 
-推荐目录：
+目标目录：
 
 ```text
 apps/
@@ -87,24 +146,27 @@ packages/
   contracts/
   agent/
   evidence/
+  community/       # logical authority，物理 package 可后置
+  persistence/     # logical authority，物理 package 可后置
 
 docs/
 ```
+
+`packages/community` 和 `packages/persistence` 不要求现在立即物理创建，但职责与 Authority 必须先明确。
 
 ### `apps/web`
 
 负责：
 
-- UI
+- Investigation / Frontier / Mission / Evidence / Impact Receipt 展示
 - 用户交互
 - 调用后端 API
-- Mission 表单
-- Knowledge State 展示
 
 禁止：
 
-- 实现 Agent 决策逻辑
-- 实现 Evidence Grade
+- Agent 决策
+- Evidence Grade
+- Knowledge State 推进
 - 重复定义 API DTO
 - 直接调用知乎 API
 
@@ -114,6 +176,7 @@ docs/
 
 - HTTP 接口
 - 参数校验
+- Application Orchestration
 - 调用 domain/package
 - 外部 API Adapter
 - 错误映射
@@ -121,6 +184,7 @@ docs/
 禁止：
 
 - 大段业务规则
+- 在 route 中长期直接修改领域 Aggregate
 - UI 逻辑
 - 重新定义 shared types
 
@@ -140,13 +204,15 @@ docs/
 
 负责：
 
+- Investigation Decision
 - Evidence State
-- 下一步行动判断
-- Knowledge Boundary
+- Knowledge State
+- Knowledge Frontier
 - Evidence Gap
-- Mission 生成
+- Gap Suitability
+- Mission Planning
 - Re-evaluation
-- Stop Rule
+- Next Action / Stop / Continue
 
 ### `packages/evidence`
 
@@ -154,14 +220,25 @@ docs/
 
 - Evidence 校验
 - Evidence Grade
+- First-hand 判断
+- Gap Match
+- Artifact 可信度辅助
 - 去重
 - 相关性判断
 - 聚合
 - Limitations
 
+### Community Authority
+
+负责 Mission Lifecycle、Participation、Evidence Intake 与 Impact Receipt。
+
+### Persistence Authority
+
+负责 DB、Cache、Durable Storage 和 Aggregate 读写；不得决定 Knowledge State、Evidence Grade 或 Gap Suitability。
+
 ---
 
-## 5. 当前核心状态
+## 8. 当前核心状态
 
 Knowledge State：
 
@@ -183,9 +260,11 @@ E2_ARTIFACT_BACKED
 
 禁止在业务代码里直接写魔法字符串。
 
+`OPEN / CLOSED` Mission 生命周期属于已确认目标，在当前代码实现前不得假装已经存在。
+
 ---
 
-## 6. 修改代码前的固定流程
+## 9. 修改代码前的固定流程
 
 每次收到任务：
 
@@ -216,13 +295,7 @@ E2_ARTIFACT_BACKED
 
 ### Step 4：先 Contract，后实现
 
-如果接口或共享数据结构需要变化：
-
-1. 先改 `packages/contracts`
-2. 再更新 `docs/API_CONTRACT.md`
-3. 再改 backend
-4. 再改 frontend
-5. 再改测试
+按第 5 节顺序执行。
 
 ### Step 5：最小修改
 
@@ -238,7 +311,7 @@ E2_ARTIFACT_BACKED
 
 ---
 
-## 7. 修改完成后的固定流程
+## 10. 修改完成后的固定流程
 
 完成后必须：
 
@@ -256,7 +329,7 @@ E2_ARTIFACT_BACKED
 
 ---
 
-## 8. 错误处理
+## 11. 错误处理
 
 禁止静默吞错。
 
@@ -281,7 +354,7 @@ GOLDEN FIXTURE
 
 ---
 
-## 9. 日志规范
+## 12. 日志规范
 
 日志应包含必要上下文：
 
@@ -301,7 +374,7 @@ console.log("test")
 
 ---
 
-## 10. 测试优先级
+## 13. 测试优先级
 
 P0 测试：
 
@@ -309,13 +382,14 @@ P0 测试：
 - Evidence Grade
 - Contract 校验
 - Agent stop / continue
+- Gap Suitability
 - Golden Demo 主链路
 
 不要求在黑客松阶段追求完整 UI 单测覆盖率。
 
 ---
 
-## 11. 默认禁止的改动
+## 14. 默认禁止的改动
 
 未经明确批准，不得引入：
 
@@ -326,6 +400,8 @@ P0 测试：
 - Reputation / Ranking
 - Expert Marketplace
 - Knowledge Graph
+- 完整社交图谱
+- 点赞 / 评论 / 积分经济
 - Full Auth System
 - 大规模框架迁移
 - 第二套状态管理
@@ -334,7 +410,7 @@ P0 测试：
 
 ---
 
-## 12. Definition of Done
+## 15. Definition of Done
 
 任务不是“代码写完”就完成。
 
@@ -345,4 +421,4 @@ P0 测试：
 - Contract 正确
 - `npm run verify` 通过
 - Golden Demo 仍可运行
-- 改动符合 `PROJECT_LOCK.md`
+- 改动符合 `docs/PROJECT_LOCK.md`

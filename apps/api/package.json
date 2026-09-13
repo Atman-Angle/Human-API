@@ -1,0 +1,14 @@
+{
+  "name": "@human-api/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "dependencies": {
+    "@human-api/agent": "0.1.0",
+    "@human-api/contracts": "0.1.0",
+    "@human-api/evidence": "0.1.0"
+  }
+}

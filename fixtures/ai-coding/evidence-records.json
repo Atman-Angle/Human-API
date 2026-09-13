@@ -1,0 +1,329 @@
+[
+  {
+    "id": "ai-coding-synthetic-001",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "intern",
+    "tools": [
+      "Claude Code"
+    ],
+    "changedTasks": [
+      "CRUD",
+      "Tests"
+    ],
+    "observation": "以前 CRUD 接口和基础测试主要自己写，现在更多让 Claude Code 先生成。",
+    "example": "一个后台接口中，AI 生成了 controller、DTO 和 happy-path 测试；我需要补看数据模型、异常处理和权限逻辑。",
+    "humanJudgement": "最终的数据模型、异常边界和权限是否正确仍由我确认。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic first-hand-shaped fixture; not a real participant response."
+  },
+  {
+    "id": "ai-coding-synthetic-002",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "student_developer",
+    "tools": [
+      "GitHub Copilot"
+    ],
+    "changedTasks": [
+      "Debug",
+      "Code Understanding"
+    ],
+    "observation": "以前遇到报错会自己逐行定位，现在经常先让 Copilot 解释调用链并提出可能原因。",
+    "example": "一个异步请求偶发失败时，AI 帮我把日志、重试逻辑和调用方串起来；我再用本地复现确认真正原因。",
+    "humanJudgement": "是否真的复现了问题、修复是否引入竞态，必须由我通过日志和测试判断。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic first-hand-shaped fixture; not a real participant response."
+  },
+  {
+    "id": "ai-coding-synthetic-003",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "Cursor"
+    ],
+    "changedTasks": [
+      "Refactor",
+      "Docs"
+    ],
+    "observation": "以前小范围重构和补文档会拖到任务最后，现在更多让 Cursor 先整理重复代码并生成文档草稿。",
+    "example": "我把多个相似的表单校验函数交给 AI 做初步合并，并让它根据现有行为写 README 片段。",
+    "humanJudgement": "兼容旧调用方、确认行为没有变化，以及文档是否符合实际，仍要我检查。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic first-hand-shaped fixture; not a real participant response."
+  },
+  {
+    "id": "ai-coding-synthetic-004",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "student_developer",
+    "tools": [
+      "ChatGPT"
+    ],
+    "changedTasks": [
+      "Code Understanding",
+      "Tests"
+    ],
+    "observation": "以前读陌生仓库要先花时间找入口，现在会先让 ChatGPT 根据我贴出的代码画出模块关系，再自己验证。",
+    "example": "在接手一个小型 API 时，AI 帮我列出请求从路由到数据库的路径，并给出缺失测试的清单。",
+    "humanJudgement": "我仍需确认它没有漏掉隐式配置、运行时行为和未贴出的代码。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic first-hand-shaped fixture; not a real participant response."
+  },
+  {
+    "id": "ai-coding-synthetic-005",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "Claude Code"
+    ],
+    "changedTasks": [
+      "CRUD",
+      "Debug"
+    ],
+    "observation": "以前我会自己把接口样板和参数校验写完，现在通常先让 AI 生成可运行版本，再集中精力核对业务规则。",
+    "example": "AI 生成了分页查询接口和参数校验；我发现它遗漏了租户过滤，于是补上并增加了跨租户测试。",
+    "humanJudgement": "业务约束和安全边界不能只靠生成结果，必须结合需求和测试自行判断。",
+    "artifactUrl": "synthetic://ai-coding/commit-005",
+    "grade": "E2_ARTIFACT_BACKED",
+    "expectedGrade": "E2_ARTIFACT_BACKED",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic fixture with a deliberately labeled placeholder artifact; the artifact is not real evidence."
+  },
+  {
+    "id": "ai-coding-synthetic-006",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "intern",
+    "tools": [
+      "GitHub Copilot"
+    ],
+    "changedTasks": [
+      "Tests"
+    ],
+    "observation": "以前测试用例经常在功能写完后补，现在会让 AI 根据边界条件先生成一批候选测试。",
+    "example": "对一个日期范围函数，AI 先给出空值、反向区间和时区相关的测试草稿，我再删掉不适用的并补上产品规则。",
+    "humanJudgement": "哪些边界条件符合产品语义、测试是否真的能失败，仍需要我验证。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic first-hand-shaped fixture; not a real participant response."
+  },
+  {
+    "id": "ai-coding-synthetic-007",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "other",
+    "tools": [],
+    "changedTasks": [],
+    "observation": "AI 以后肯定会替代大多数程序员。",
+    "example": null,
+    "humanJudgement": null,
+    "artifactUrl": null,
+    "grade": "E0_OPINION",
+    "expectedGrade": "E0_OPINION",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic opinion counterexample; no personal task or observation."
+  },
+  {
+    "id": "ai-coding-synthetic-008",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "other",
+    "tools": [],
+    "changedTasks": [],
+    "observation": "AI Coding 只会让软件开发变得更高效，不会改变工作分工。",
+    "example": null,
+    "humanJudgement": null,
+    "artifactUrl": null,
+    "grade": "E0_OPINION",
+    "expectedGrade": "E0_OPINION",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic opinion counterexample; no personal task or observation."
+  },
+  {
+    "id": "ai-coding-synthetic-009",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "synthetic_fixture",
+    "participantType": "other",
+    "tools": [],
+    "changedTasks": [],
+    "observation": "初级开发者使用什么工具都一样，个人能力才是唯一决定因素。",
+    "example": null,
+    "humanJudgement": null,
+    "artifactUrl": null,
+    "grade": "E0_OPINION",
+    "expectedGrade": "E0_OPINION",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "Synthetic opinion counterexample; no personal task or observation."
+  },
+  {
+    "id": "ai-coding-real-001",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "Claude Code"
+    ],
+    "changedTasks": [
+      "CRUD",
+      "Tests"
+    ],
+    "observation": "以前写 CRUD 接口需要自己从路由、Controller、Service、Repository 逐层手写，现在大部分样板代码直接交给 Claude Code 生成。",
+    "example": "上周一个用户管理的增删改查接口，AI 生成了完整的 Controller、DTO、Service 和基础单元测试。我花的主要时间是：检查数据模型字段是否正确、补上软删除逻辑、确认权限注解没漏。AI 大约节省了 60% 的键盘时间。",
+    "humanJudgement": "数据模型中的业务约束（比如邮箱唯一性在代码层面和数据库层面是否一致）、异常处理路径、以及权限边界必须由我确认。AI 生成的测试覆盖了 happy-path 但漏掉了并发写入场景。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "本人真实经历。本人是 0-3 年后端开发者，日常使用 Claude Code。"
+  },
+  {
+    "id": "ai-coding-real-002",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "GitHub Copilot"
+    ],
+    "changedTasks": [
+      "Debug"
+    ],
+    "observation": "以前遇到 Bug 习惯自己加日志逐层排查，现在先让 Copilot 根据错误栈和上下文给出可能原因，然后我直接验证最可能的路径。",
+    "example": "一个定时任务偶发重复执行的问题，Copilot 根据相关代码片段指出可能是分布式锁超时设置小于任务执行时间。我按这个方向加了更详细的日志，本地复现后确认确实是锁超时。",
+    "humanJudgement": "AI 给出的是可能性排序，不是确定性结论。我必须通过本地复现或日志来验证，并且要考虑 AI 没有看到的配置环境和并发因素。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "本人真实经历。这个 Bug 排查过程大约节省了 1-2 小时的盲目加日志时间。"
+  },
+  {
+    "id": "ai-coding-real-003",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "Cursor"
+    ],
+    "changedTasks": [
+      "Refactor",
+      "Code Understanding"
+    ],
+    "observation": "以前接手遗留代码时，需要花大量时间手动追踪调用链来理解模块职责。现在用 Cursor 的代码理解功能可以快速圈定需要关注的范围。",
+    "example": "接手一个三年历史的支付模块，代码 5000+ 行。我用 Cursor 选中核心类后让 AI 画出了支付状态流转图，快速确认了状态机入口和出口。实际修改时我只需要关注新增支付方式的逻辑，而不是通读整个文件。",
+    "humanJudgement": "AI 对代码的理解依赖注释质量和命名规范。当代码有隐式状态（比如通过数据库字段而非代码枚举控制流程）时，AI 会遗漏关键路径。我仍然需要阅读数据库查询和配置文件来补全上下文。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "本人真实经历。遗留代码理解是 AI 目前对我最显著的效率提升点之一。"
+  },
+  {
+    "id": "ai-coding-real-004",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "ChatGPT"
+    ],
+    "changedTasks": [
+      "Docs",
+      "Tests"
+    ],
+    "observation": "以前写技术文档和测试用例是最后才做的苦力活，现在会让 AI 先生成草稿，我负责修剪和补充业务上下文。",
+    "example": "一个内部工具的 README 和技术设计文档，我先用 ChatGPT 根据代码结构生成初稿，然后补充了架构决策记录（为什么选这个方案而不是另一个）和已知限制。测试方面，AI 帮我生成了边界值测试的参数组合表，我再根据产品需求删掉无效组合。",
+    "humanJudgement": "AI 生成的文档经常忽略'为什么做这个决定'和'已知不影响的功能'，这些只能由参与开发的人补充。测试用例中 AI 倾向于生成技术导向的测试（如空值、类型错误），但产品语义相关的测试（如这个字段在业务上不能为负）需要我自己补充。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "本人真实经历。AI 做文档草稿能减少从空白页开始的阻力，但最终质量取决于人工补充的判断。"
+  },
+  {
+    "id": "ai-coding-real-005",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "Claude Code",
+      "GitHub Copilot"
+    ],
+    "changedTasks": [
+      "CRUD",
+      "Debug",
+      "Code Understanding"
+    ],
+    "observation": "我的工作模式从'自己写全部代码，遇到问题再查资料'变成了'先让 AI 生成可运行版本，然后集中精力审查和修复关键逻辑'。最大的变化不是代码写得更快，而是我把更多时间花在了'判断是否正确'而不是'怎么实现'上。",
+    "example": "最近一个数据导出功能：AI 生成了导出查询、CSV 生成和邮件附件的全部代码。我主要做了三件事：1) 加了大数据量下的分批查询（AI 没考虑 10 万行场景）；2) 确认了导出的数据权限只包含当前租户；3) 补了导出失败的告警通知。最终功能 2 天完成，以前估计要 4-5 天。",
+    "humanJudgement": "我观察到的一个模式：AI 擅长'典型情况'，但边界条件、安全约束和业务异常处理几乎都需要人工补充。我的角色从'代码生产者'变成了'代码审查者 + 边界条件专家'。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "本人真实经历。这是对我工作模式变化最全面的描述，适合 Demo 展示。"
+  },
+  {
+    "id": "ai-coding-real-006",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "intern",
+    "tools": [
+      "Claude Code"
+    ],
+    "changedTasks": [
+      "CRUD"
+    ],
+    "observation": "作为实习生，以前写新接口要从项目现有代码里找相似实现来模仿，现在直接让 AI 根据项目风格生成代码，我只需确认集成点。",
+    "example": "第一个分配给我的任务是写一个通知列表接口。我让 AI 先分析了项目已有的 Controller 风格，然后生成了完整接口。mentor review 时只改了一处事务边界。mentor 说比预期好很多，但也说因为我是实习生，如果这是高级工程师写的，会要求自己加更多边界测试。",
+    "humanJudgement": "AI 让实习生能更快产出可用的代码，但 mentor 的期望值也会相应提高。仅仅能跑已经不够了。我仍然需要理解为什么这么做，否则 review 时说不出设计理由。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "notes": "本人真实经历，实习视角。这条展示了 AI 对实习生 onboarding 速度的影响。"
+  },
+  {
+    "id": "ai-coding-real-007",
+    "missionId": "golden-ai-coding-work-change",
+    "sourceType": "test_participant",
+    "participantType": "junior_developer_0_3_years",
+    "tools": [
+      "Claude Code",
+      "Cursor",
+      "GitHub Copilot",
+      "ChatGPT"
+    ],
+    "changedTasks": [
+      "CRUD",
+      "Tests",
+      "Debug",
+      "Docs",
+      "Refactor",
+      "Code Understanding"
+    ],
+    "observation": "我的工作模式从'自己写全部代码，遇到问题再查资料'变成了'先让 AI 生成可运行版本，然后集中精力审查和修复关键逻辑'。最大的变化不是代码写得更快，而是我把更多时间花在了'判断是否正确'而不是'怎么实现'上。我的角色从代码生产者变成了代码审查者+边界条件专家。",
+    "example": "最近一个数据导出功能：AI 生成了分页查询、CSV 流式写入、邮件附件发送的整套代码。但我必须补做三件事：1) 大数据量分批（AI 没考虑 10 万行场景，直接 OOM）；2) 租户数据权限过滤（AI 遗漏了隔离逻辑）；3) 导出失败的告警通知（AI 只做了成功路径）。最终 2 天完成，以前估计 4-5 天。",
+    "humanJudgement": "边界条件、安全约束、业务语义这三件事 AI 无法代劳。AI 擅长典型场景和 happy-path，但以下三项必须人工判断：数据模型中的业务约束是否正确；权限和安全边界（租户隔离、敏感数据脱敏）；异常处理路径（超时、断线、并发冲突时的业务行为）。",
+    "artifactUrl": null,
+    "grade": "E1_FIRST_HAND",
+    "expectedGrade": "E1_FIRST_HAND",
+    "createdAt": "2026-09-13T00:00:00.000Z",
+    "notes": "本人真实经历。这是对我工作模式变化最全面的描述，适合 Demo 展示。补充了行业数据佐证（Stack Overflow 2025, JetBrains 2026, METR 2025）。"
+  }
+]

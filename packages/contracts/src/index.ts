@@ -117,6 +117,7 @@ export const EvidenceGapSchema = z.object({
   id: z.string().min(1),
   claim: z.string().min(1),
   affectedClaim: z.string().min(1),
+  affectedClaimId: z.string().min(1),
   whyUnresolved: z.string().min(1),
   missingObservation: z.string().min(1),
   targetParticipants: z.array(z.string().min(1)).min(1),
@@ -158,6 +159,14 @@ export const MissionQuestionSchema = z.object({
 });
 export type MissionQuestion = z.infer<typeof MissionQuestionSchema>;
 
+export const MissionStatusSchema = z.enum(["OPEN", "CLOSED"]);
+export type MissionStatus = z.infer<typeof MissionStatusSchema>;
+export const MISSION_STATUSES = MissionStatusSchema.options;
+export const MISSION_STATUS = {
+  OPEN: "OPEN",
+  CLOSED: "CLOSED",
+} as const;
+
 export const EvidenceMissionSchema = z.object({
   id: z.string().min(1),
   investigationId: z.string().min(1),
@@ -166,10 +175,37 @@ export const EvidenceMissionSchema = z.object({
   description: z.string().min(1),
   qualification: z.array(z.string().min(1)).min(1),
   questions: z.array(MissionQuestionSchema).min(1),
+  status: MissionStatusSchema,
+  /** @deprecated Retained only for Golden Demo compatibility; do not add new dependencies. */
   estimatedSeconds: z.number().int().positive().max(60),
   createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  closedAt: z.string().datetime().optional(),
+  closedReason: z.string().min(1).optional(),
 });
 export type EvidenceMission = z.infer<typeof EvidenceMissionSchema>;
+
+export const InvestigationListItemSchema = z.object({
+  id: z.string().min(1),
+  question: z.string().min(1),
+  knowledgeState: KnowledgeStateStatusSchema,
+  missionCount: z.number().int().nonnegative(),
+  evidenceCount: z.number().int().nonnegative(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type InvestigationListItem = z.infer<typeof InvestigationListItemSchema>;
+
+export const MissionListItemSchema = z.object({
+  id: z.string().min(1),
+  investigationId: z.string().min(1),
+  evidenceGapId: z.string().min(1),
+  title: z.string().min(1),
+  status: MissionStatusSchema,
+  evidenceCount: z.number().int().nonnegative(),
+  createdAt: z.string().datetime(),
+});
+export type MissionListItem = z.infer<typeof MissionListItemSchema>;
 
 export const EvidenceSubmissionSchema = z.object({
   statement: z.string().min(1),
@@ -194,6 +230,21 @@ export const EvidenceRecordSchema = z.object({
   createdAt: z.string().datetime(),
 });
 export type EvidenceRecord = z.infer<typeof EvidenceRecordSchema>;
+
+export const ImpactReceiptSchema = z.object({
+  evidenceId: z.string().min(1),
+  missionId: z.string().min(1),
+  investigationId: z.string().min(1),
+  accepted: z.boolean(),
+  grade: EvidenceGradeSchema,
+  affectedClaimId: z.string().min(1),
+  stateBefore: KnowledgeStateStatusSchema,
+  stateAfter: KnowledgeStateStatusSchema,
+  impactSummary: z.string().min(1),
+  stillMissing: z.array(z.string()),
+  createdAt: z.string().datetime(),
+});
+export type ImpactReceipt = z.infer<typeof ImpactReceiptSchema>;
 
 export const KnowledgeStateSchema = z.object({
   status: KnowledgeStateStatusSchema,

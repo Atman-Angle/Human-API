@@ -29,6 +29,8 @@ type EvidenceGrade = "E0_OPINION" | "E1_FIRST_HAND" | "E2_ARTIFACT_BACKED";
 
 type GapSuitabilityStatus = "MISSION_READY" | "NEEDS_REFRAMING" | "NOT_SUITABLE_FOR_HUMAN_MISSION";
 
+type MissionStatus = "OPEN" | "CLOSED";
+
 type SearchProvenance = "LIVE" | "CACHE" | "GOLDEN_FIXTURE";
 ```
 
@@ -66,6 +68,7 @@ interface EvidenceGap {
   id: string;
   claim: string;
   affectedClaim: string;
+  affectedClaimId: string;
   whyUnresolved: string;
   missingObservation: string;
   targetParticipants: string[];
@@ -75,9 +78,9 @@ interface EvidenceGap {
 
 说明：
 
-- `affectedClaim` 当前仅是人类可读文本。
-- TARGET P0 需要稳定的 `affectedClaimId`；该字段尚未实现。
-- `affectedClaimId` 必须引用 Investigation 内已有 Claim/ClaimAssessment，而不是复制第二套 Claim Authority。
+- `affectedClaim` 仅是人类可读文本，负责展示。
+- `affectedClaimId` 是稳定关系字段，必须引用同一 Investigation 内已有的 Claim/ClaimAssessment。
+- 两者用途不得混用；`affectedClaimId` 不得通过 Claim 文本匹配生成。
 
 ## GapSuitabilityResult
 
@@ -114,16 +117,24 @@ interface EvidenceMission {
   description: string;
   qualification: string[];
   questions: MissionQuestion[];
+  status: MissionStatus;
+  /** @deprecated Retained only for existing Demo compatibility. */
   estimatedSeconds: number;
   createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  closedReason?: string;
 }
 ```
 
 说明：
 
-- `estimatedSeconds` 是当前代码字段，当前限定为 `> 0` 且 `<= 60`。
-- `estimatedSeconds` 标记为 **deprecated / planned removal**。轻量体验是 Mission 设计原则，不是长期核心业务 Contract。
-- TARGET P0 需要最小生命周期 `OPEN | CLOSED`；当前尚未实现。
+- `evidenceGapId` 是 Mission 到 Gap 的稳定关系字段，必须引用同一 Investigation 内已有的 `EvidenceGap.id`。
+- Mission 通过 Gap 间接确定 Claim，不复制 Claim 状态。
+- 新 Mission 创建时必须为 `status = OPEN`，且 `createdAt === updatedAt`。
+- 只有 `OPEN` Mission 接受新的 Evidence Submission；`CLOSED` Mission 仍可读取，历史和归因不得删除。
+- `closeMission(...)` 是当前内部确定性 transition；关闭时写入 `updatedAt`、`closedAt` 与非空 `closedReason`。当前不开放 `POST /api/missions/:id/close`。
+- `estimatedSeconds` 仍因现有 Golden Demo 脚本读取而保留，并标记为 **deprecated / planned removal**。轻量体验是 Mission 设计原则，不是长期核心业务 Contract；不得新增依赖。
 - Mission Feed 指按 Investigation 与 Evidence Gap 组织的结构化 Mission 列表，不是通用内容推荐流。
 
 ## EvidenceSubmission
@@ -155,6 +166,24 @@ interface EvidenceRecord {
   createdAt: string;
 }
 ```
+
+## Attribution Chain
+
+```text
+EvidenceRecord.missionId
+  → EvidenceMission.id
+  → EvidenceMission.evidenceGapId
+  → EvidenceGap.id
+  → EvidenceGap.affectedClaimId
+  → ClaimAssessment.id
+```
+
+约束：
+
+- `EvidenceRecord` 只保存 `missionId`；`investigationId` 来自拥有该 Mission 的 Investigation Aggregate。
+- `evidenceGapId` 从 Mission 解析，`affectedClaimId` 从 Gap 解析，不要求在 EvidenceRecord 中重复存储。
+- 所有业务关系必须沿上述 ID 链解析；不得通过 `claim`、`affectedClaim` 或其他展示文本匹配建立归属。
+- API 必须以服务端已有 Mission → Gap → Claim 链路为准，客户端不能指定 Claim 归属。
 
 ## KnowledgeState
 
@@ -211,10 +240,16 @@ interface ReEvaluation {
 }
 ```
 
-当前风险：
+当前行为：
 
-- Re-evaluation 当前可能读取 Investigation 下全部 Evidence。
-- TARGET P0 必须隔离到 Mission、Gap 和受影响 Claim 的相关 Evidence。
+- 必须显式传入目标 Mission 与 Gap，并验证 `mission.evidenceGapId === gap.id`。
+- 通过 `gap.affectedClaimId` 定位目标 Claim，不进行 Claim 文本匹配。
+- 先按 `record.missionId === mission.id` 隔离 Mission Evidence，再筛除 `matchesGap !== true` 和 E0。
+- 仅返回目标 Claim 的更新；其他 Claim 不因本次 Re-evaluation 被推进或改写。
+
+当前限制：
+
+- 多 Mission 的完整编排仍属于后续任务；当前 Agent 测试已覆盖多 Mission / Gap / Claim 的隔离行为。
 
 ## Investigation
 
@@ -284,7 +319,7 @@ interface Investigation {
 
 当前行为：
 
-- `MISSION_READY`：创建 Mission 或返回已有 Mission。
+- `MISSION_READY`：创建 `OPEN` Mission；同一 `evidenceGapId` 已存在 Mission 时返回现有 Mission，不追加等价 Mission。
 - `NEEDS_REFRAMING` 或 `NOT_SUITABLE_FOR_HUMAN_MISSION`：返回 `409 VALIDATION_ERROR`。
 - 显式 `gapId` 与实际 mission-ready Gap 不一致：返回 `409 VALIDATION_ERROR`。
 
@@ -298,17 +333,19 @@ EvidenceSubmission;
 
 当前行为：
 
-- 调用 Evidence Grade 与 Gap Match。
-- 将 EvidenceRecord 加入 Investigation。
-- 对整个 Investigation 执行 Re-evaluation。
-- 返回更新后的 `Investigation`。
+- Mission 不存在时返回 `404 NOT_FOUND`；Mission 存在但不是 `OPEN` 时，在 Evidence Grade 之前返回 `409 VALIDATION_ERROR`。
+- 服务端按 `missionId → EvidenceMission.evidenceGapId → EvidenceGap → affectedClaimId → ClaimAssessment` 解析归因。
+- Mission、Gap 或 Claim 缺失，或 Gap 不属于该 Investigation 时返回 `409 VALIDATION_ERROR`。
+- 请求体只接受 `EvidenceSubmission`；客户端提交的 `missionId`、`evidenceGapId` 或 `affectedClaimId` 会被 schema 剥离，不能覆盖服务端归因。
+- 调用 Evidence Grade 与 Gap Match，并以服务端 Mission ID 保存 EvidenceRecord。
+- Re-evaluation 只读取 `record.missionId === mission.id` 的 Evidence，再使用 `matchesGap` 与 E1/E2 条件筛选。
+- 只更新 `gap.affectedClaimId` 指向的 Claim；同一 Investigation 的其他 Claim 保持原状态。
+- 返回更新后的 `Investigation`，包含 `record`、`receipt` 与 `investigation`。
 
 当前限制：
 
-- 不返回 Impact Receipt。
-- 没有 Mission 生命周期检查。
-- route handler 直接修改 Evidence 与 Knowledge State，只适合 vertical slice。
-- Evidence 到 Claim 的归因仍不稳定。
+- Mission 当前只实现内部 `closeMission(...)` transition；没有关闭 HTTP API、重新打开流程或自动关闭策略。
+- `EvidenceRecord` 不重复保存 `investigationId`、`evidenceGapId`、`affectedClaimId`；这些值通过所属 Investigation 和 Mission → Gap → Claim 链稳定推导。
 
 ## Current Error Contract
 
@@ -339,37 +376,34 @@ INTERNAL_ERROR
 
 # TARGET P0
 
-TARGET P0 尚未整体实现。以下接口和 Contract 是已确认目标，不得在文档或 UI 中伪装为当前可用。
+以下接口和 Contract 为主要目标。大部分已实现为 CURRENT，部分扩展仍为后续目标：
 
 ## Target P0 API
 
-| Method | Path                         | Target State                             |
-| ------ | ---------------------------- | ---------------------------------------- |
-| `GET`  | `/api/investigations`        | PLANNED                                  |
-| `GET`  | `/api/investigations/:id`    | CURRENT，保留并扩展为社区投影            |
-| `GET`  | `/api/missions`              | PLANNED                                  |
-| `GET`  | `/api/missions/:id`          | PLANNED                                  |
-| `POST` | `/api/missions/:id/evidence` | CURRENT 写接口；目标行为需按下方流程升级 |
-| `GET`  | `/api/evidence/:id/impact`   | PLANNED                                  |
+| Method | Path                         | Target State                               |
+| ------ | ---------------------------- | ------------------------------------------ |
+| `GET`  | `/api/investigations`        | CURRENT，返回 Investigation 摘要列表       |
+| `GET`  | `/api/investigations/:id`    | CURRENT，返回完整 Investigation            |
+| `GET`  | `/api/missions`              | CURRENT，支持 `?status=OPEN` 过滤          |
+| `GET`  | `/api/missions/:id`          | CURRENT，返回 Mission Detail 含 Evidence   |
+| `POST` | `/api/missions/:id/evidence` | CURRENT，返回 `record` + `receipt`         |
+| `GET`  | `/api/evidence/:id/impact`   | CURRENT，从 Investigation 状态重建 Receipt |
 
 保留当前写接口以兼容 Golden Demo，不为 REST 对称性增加无必要接口。
 
-## Target Mission Lifecycle
+## Mission Lifecycle Extensions
 
-```ts
-type MissionStatus = "OPEN" | "CLOSED";
-```
+`MissionStatus = "OPEN" | "CLOSED"`、创建为 `OPEN`、`CLOSED` 拒绝普通 Evidence，以及历史归因保留均属于 `CURRENT`。
 
-目标语义：
+仍属于后续目标、当前未实现：
 
-- `OPEN`：Mission 接受符合资格与 Gap 要求的 Evidence。
-- `CLOSED`：Mission 不再接受普通 Evidence；只能通过明确的重新打开流程或用新 Mission 继续。
-- 已收到 Evidence 不因关闭而删除。
-- `estimatedSeconds` 从长期核心 Contract 中计划移除。
+- 明确业务条件触发的自动关闭。
+- HTTP 关闭/重新打开工作流；只有 Golden Demo 明确需要时才增加接口。
+- `estimatedSeconds` 从长期核心 Contract 中移除。
 
-## Target ImpactReceipt
+## ImpactReceipt
 
-以下为目标 Contract，当前未实现：
+以下为 CURRENT，在 Evidence Intake 时生成：
 
 ```ts
 interface ImpactReceipt {
@@ -394,7 +428,7 @@ interface ImpactReceipt {
 - `stillMissing` 说明下一 Knowledge Frontier，而不是泛泛的“需要更多数据”。
 - Impact Receipt 的 Authority 属于 Community；不能由 UI 自行推断。
 
-## Target Evidence Intake Flow
+## Evidence Intake Flow
 
 ```text
 Community User
@@ -422,8 +456,6 @@ Persist
 4. 状态转移形成明确 before / after。
 5. Community Authority 生成 Impact Receipt。
 6. Persistence Authority 保存 Evidence、Re-evaluation、Knowledge State 与 Impact Receipt。
-
-目标实现完成前，当前写接口仍是唯一真实行为。
 
 ---
 

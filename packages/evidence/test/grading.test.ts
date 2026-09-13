@@ -1,4 +1,5 @@
 import type { EvidenceGap, EvidenceMission, EvidenceSubmission } from "@human-api/contracts";
+import { MISSION_STATUS } from "@human-api/contracts";
 import { describe, expect, it } from "vitest";
 import { gradeEvidenceSubmission } from "../src/index.js";
 
@@ -8,6 +9,7 @@ const gap: EvidenceGap = {
   id: "gap-1",
   claim: "部分初级开发者的任务转移",
   affectedClaim: "AI Coding 改变哪些工作？",
+  affectedClaimId: "claim-task-transfer-signal",
   whyUnresolved: "缺少任务级第一手观察",
   missingObservation: "具体任务、AI 贡献和人工判断",
   targetParticipants: ["学生开发者", "实习生", "0–3 年开发者"],
@@ -22,8 +24,10 @@ const mission: EvidenceMission = {
   description: "说明 AI 做了什么以及你判断什么",
   qualification: gap.targetParticipants,
   questions: [],
+  status: MISSION_STATUS.OPEN,
   estimatedSeconds: 55,
   createdAt: NOW,
+  updatedAt: NOW,
 };
 
 function grade(submission: EvidenceSubmission) {

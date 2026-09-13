@@ -1,8 +1,10 @@
 import {
   AGENT_ACTION,
   GAP_SUITABILITY_STATUS,
+  MISSION_STATUS,
   SEARCH_PROVENANCE,
   SOURCE_PROVIDER,
+  type EvidenceGap,
   type EvidenceRecord,
   type SearchResponse,
   type SourceRef,
@@ -84,6 +86,11 @@ describe("Evidence Gap suitability gate", () => {
       standardizedMeasurementDependency: false,
     });
     expect(state.nextGap?.id).toBe(state.candidateGap?.id);
+    expect(
+      [...state.supported, ...state.unsupported].some(
+        (claim) => claim.id === state.nextGap?.affectedClaimId,
+      ),
+    ).toBe(true);
   });
 
   it.each([
@@ -108,6 +115,11 @@ describe("Evidence Gap suitability gate", () => {
       expect(state.gapSuitability?.reframedGap?.missingObservation).toContain("最近 30 天");
       expect(state.gapSuitability?.reframedGap?.missingObservation).not.toBe(question);
       expect(state.nextGap?.id).toBe(state.gapSuitability?.reframedGap?.id);
+      expect(
+        [...state.supported, ...state.unsupported].some(
+          (claim) => claim.id === state.nextGap?.affectedClaimId,
+        ),
+      ).toBe(true);
     },
   );
 
@@ -180,8 +192,13 @@ describe("Agent evidence state", () => {
     });
 
     expect(mission.evidenceGapId).toBe(state.nextGap.id);
+    expect(state.nextGap.affectedClaimId).toBeTruthy();
+    expect(state.supported.some((item) => item.id === state.nextGap?.affectedClaimId)).toBe(true);
     expect(mission.description).toBe(state.nextGap.missingObservation);
-    expect(mission.estimatedSeconds).toBeLessThanOrEqual(60);
+    expect(mission.status).toBe(MISSION_STATUS.OPEN);
+    expect(mission.updatedAt).toBe(mission.createdAt);
+    expect(mission.closedAt).toBeUndefined();
+    expect(mission.closedReason).toBeUndefined();
     expect(mission.title).toContain("AI Coding");
   });
 
@@ -190,10 +207,11 @@ describe("Agent evidence state", () => {
       "学生和实习生用 Claude Code 生成接口测试，但自己检查异常和业务边界。",
     ]);
     if (!evidenceState.nextGap) throw new Error("Gap missing");
+    const gap = evidenceState.nextGap;
     const mission = createEvidenceMission({
       investigationId: "investigation-1",
       question: AI_QUESTION,
-      gap: evidenceState.nextGap,
+      gap,
     });
     const initial = createInitialKnowledgeState(evidenceState, NOW);
 
@@ -211,7 +229,8 @@ describe("Agent evidence state", () => {
     const e0State = reevaluateKnowledgeState({
       question: AI_QUESTION,
       evidenceState,
-      missions: [mission],
+      mission,
+      gap,
       evidence: [e0],
     });
     expect(e0State.knowledgeState).toBe("UNRESOLVED");
@@ -237,17 +256,102 @@ describe("Agent evidence state", () => {
     const e1State = reevaluateKnowledgeState({
       question: AI_QUESTION,
       evidenceState,
-      missions: [mission],
+      mission,
+      gap,
       evidence: [e0, e1],
     });
 
     expect(initial.status).toBe("UNRESOLVED");
     expect(e1State.knowledgeState).toBe("EARLY_EVIDENCE");
     expect(e1State.supportedNow).toHaveLength(1);
-    expect(e1State.supportedNow[0]?.claim).toBe(evidenceState.nextGap.claim);
+    const affectedClaim = evidenceState.supported.find((item) => item.id === gap.affectedClaimId);
+    expect(affectedClaim).toBeDefined();
+    expect(e1State.supportedNow[0]?.id).toBe(gap.affectedClaimId);
+    expect(e1State.supportedNow[0]?.claim).toBe(affectedClaim?.claim);
     expect(e1State.stillUnsupported).toEqual(evidenceState.unsupported);
   });
 
+  it("isolates re-evaluation by Mission, Gap, and Claim attribution", () => {
+    const evidenceState = evaluate(AI_QUESTION, [
+      "学生和实习生用 Claude Code 生成接口测试，但自己检查异常和业务边界。",
+    ]);
+    const gapA = evidenceState.nextGap;
+    const claimA = gapA
+      ? evidenceState.supported.find((item) => item.id === gapA.affectedClaimId)
+      : undefined;
+    const claimB = evidenceState.unsupported[0];
+    if (!gapA || !claimA || !claimB) throw new Error("Attribution fixture incomplete");
+
+    const missionA = createEvidenceMission({
+      investigationId: "investigation-1",
+      question: AI_QUESTION,
+      gap: gapA,
+    });
+    const gapB: EvidenceGap = {
+      ...gapA,
+      id: "gap-b",
+      claim: claimB.claim,
+      affectedClaim: claimB.claim,
+      affectedClaimId: claimB.id,
+    };
+    const missionB = createEvidenceMission({
+      investigationId: "investigation-1",
+      question: AI_QUESTION,
+      gap: gapB,
+    });
+
+    const evidenceA: EvidenceRecord = {
+      id: "evidence-a",
+      missionId: missionA.id,
+      participantType: "实习生",
+      submission: {
+        statement: "接口测试主要由 AI 生成，我负责业务边界审核。",
+      },
+      observation: "接口测试主要由 AI 生成，我负责业务边界审核。",
+      grade: "E1_FIRST_HAND",
+      gradeReason: "第一手观察",
+      matchesGap: true,
+      createdAt: NOW,
+    };
+    const evidenceB: EvidenceRecord = {
+      id: "evidence-b",
+      missionId: missionB.id,
+      participantType: "0-3 年开发者",
+      submission: {
+        statement: "另一条针对不同 Claim 的第一手观察。",
+      },
+      observation: "另一条针对不同 Claim 的第一手观察。",
+      grade: "E1_FIRST_HAND",
+      gradeReason: "第一手观察",
+      matchesGap: true,
+      createdAt: NOW,
+    };
+
+    const resultA = reevaluateKnowledgeState({
+      question: AI_QUESTION,
+      evidenceState,
+      mission: missionA,
+      gap: gapA,
+      evidence: [evidenceA, evidenceB],
+    });
+    expect(resultA.supportedNow).toHaveLength(1);
+    expect(resultA.supportedNow[0]?.id).toBe(claimA.id);
+    expect(resultA.supportedNow[0]?.evidenceIds).toEqual([evidenceA.id]);
+    expect(resultA.supportedNow.some((item) => item.id === claimB.id)).toBe(false);
+    expect(resultA.stillUnsupported.find((item) => item.id === claimB.id)).toEqual(claimB);
+
+    const resultB = reevaluateKnowledgeState({
+      question: AI_QUESTION,
+      evidenceState,
+      mission: missionB,
+      gap: gapB,
+      evidence: [evidenceA, evidenceB],
+    });
+    expect(resultB.supportedNow).toHaveLength(1);
+    expect(resultB.supportedNow[0]?.id).toBe(claimB.id);
+    expect(resultB.supportedNow[0]?.evidenceIds).toEqual([evidenceB.id]);
+    expect(resultB.supportedNow.some((item) => item.id === claimA.id)).toBe(false);
+  });
   it("keeps claims, gaps, sources, and limitations isolated across investigations", () => {
     const first = evaluate(AI_QUESTION, [
       "初级开发者用 Claude Code 生成测试和接口，但仍需要人工检查业务边界。",

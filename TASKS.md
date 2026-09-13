@@ -122,7 +122,7 @@ Acceptance Criteria:
 
 Owner: A
 
-Status: TODO
+Status: READY
 
 Allowed Paths:
 
@@ -154,7 +154,7 @@ Acceptance Criteria:
 
 Owner: A
 
-Status: TODO
+Status: READY
 
 Allowed Paths:
 
@@ -187,7 +187,7 @@ Acceptance Criteria:
 
 Owner: A
 
-Status: TODO
+Status: READY
 
 Allowed Paths:
 
@@ -218,7 +218,7 @@ Acceptance Criteria:
 
 Owner: A
 
-Status: TODO
+Status: READY
 
 Allowed Paths:
 
@@ -251,7 +251,7 @@ Acceptance Criteria:
 
 Owner: A
 
-Status: TODO
+Status: READY
 
 Allowed Paths:
 

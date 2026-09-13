@@ -1,4 +1,5 @@
 import type { EvidenceMission, Investigation } from "@human-api/contracts";
+import { MISSION_STATUS } from "@human-api/contracts";
 
 export interface MissionLookup {
   investigation: Investigation;
@@ -22,5 +23,20 @@ export class InMemoryInvestigationRepository {
       if (mission) return { investigation, mission };
     }
     return undefined;
+  }
+
+  listInvestigations(): Investigation[] {
+    return [...this.investigations.values()];
+  }
+
+  listMissions(openOnly?: boolean): { investigation: Investigation; mission: EvidenceMission }[] {
+    const result: { investigation: Investigation; mission: EvidenceMission }[] = [];
+    for (const investigation of this.investigations.values()) {
+      for (const mission of investigation.missions) {
+        if (openOnly && mission.status !== MISSION_STATUS.OPEN) continue;
+        result.push({ investigation, mission });
+      }
+    }
+    return result;
   }
 }

@@ -4,6 +4,7 @@ import {
   EVIDENCE_GRADE,
   GAP_SUITABILITY_STATUS,
   KNOWLEDGE_STATE,
+  MISSION_STATUS,
   type AgentAction,
   type ClaimAssessment,
   type EvidenceGap,
@@ -127,7 +128,8 @@ interface MissionInput {
 interface ReEvaluationInput {
   question: string;
   evidenceState: EvidenceState;
-  missions: EvidenceMission[];
+  mission: EvidenceMission;
+  gap: EvidenceGap;
   evidence: EvidenceRecord[];
 }
 
@@ -243,11 +245,16 @@ function determineSuitabilityStatus(signals: SuitabilitySignals): GapSuitability
   return GAP_SUITABILITY_STATUS.MISSION_READY;
 }
 
-function buildMeasurementGap(question: string, sources: SourceRef[]): EvidenceGap {
+function buildMeasurementGap(
+  question: string,
+  sources: SourceRef[],
+  affectedClaimId: string,
+): EvidenceGap {
   return {
     id: stableId("gap", `measurement:${question}`),
     claim: "该问题要求一个在可比条件下得到的量化结果，单次经历或摘要检索不能直接回答。",
     affectedClaim: question,
+    affectedClaimId,
     whyUnresolved:
       sources.length > 0
         ? "公开材料没有给出一致测量口径、完整样本框架和可复核原始数据，单个叙述也无法替代可比较的总体结果。"
@@ -260,11 +267,16 @@ function buildMeasurementGap(question: string, sources: SourceRef[]): EvidenceGa
   };
 }
 
-function buildPrevalenceGap(question: string, sources: SourceRef[]): EvidenceGap {
+function buildPrevalenceGap(
+  question: string,
+  sources: SourceRef[],
+  affectedClaimId: string,
+): EvidenceGap {
   return {
     id: stableId("gap", `prevalence:${question}`),
     claim: "该问题要求判断相关事件在目标群体中的相对频率或共同模式，而不是记录单个事件。",
     affectedClaim: question,
+    affectedClaimId,
     whyUnresolved:
       sources.length > 0
         ? "公开摘要中的经验叙述无法提供目标人群、时间窗口和抽样方式一致的可比较数据。"
@@ -276,12 +288,17 @@ function buildPrevalenceGap(question: string, sources: SourceRef[]): EvidenceGap
   };
 }
 
-function buildExperienceGap(question: string, sources: SourceRef[]): EvidenceGap {
+function buildExperienceGap(
+  question: string,
+  sources: SourceRef[],
+  affectedClaimId: string,
+): EvidenceGap {
   return {
     id: stableId("gap", `experience:${question}`),
     claim:
       "在一次近期真实经历中，可以指出一个具体环节：原本如何发生、主要执行者是谁，以及当事人最终在哪一步作出判断。",
     affectedClaim: question,
+    affectedClaimId,
     whyUnresolved:
       sources.length > 0
         ? "公开材料提供的是二手总结或零散叙述，尚未形成与问题主题直接对应、包含具体情境和本人判断的第一手观察。"
@@ -294,11 +311,25 @@ function buildExperienceGap(question: string, sources: SourceRef[]): EvidenceGap
   };
 }
 
-function buildCandidateGap(question: string, sources: SourceRef[]): EvidenceGap {
-  const signals = analyzeSuitabilitySignals(question);
-  if (signals.standardizedMeasurementDependency) return buildMeasurementGap(question, sources);
-  if (signals.prevalenceRisk) return buildPrevalenceGap(question, sources);
-  return buildExperienceGap(question, sources);
+function affectedClaimIdForGap(isAiTaskGap: boolean, signals: SuitabilitySignals): string {
+  if (isAiTaskGap) return "claim-task-transfer-signal";
+  if (signals.standardizedMeasurementDependency) return "claim-quantified-result-unsupported";
+  if (signals.prevalenceRisk) return "claim-prevalence-result-unsupported";
+  return "claim-population-pattern-unsupported";
+}
+
+function buildCandidateGap(
+  question: string,
+  sources: SourceRef[],
+  isAiTaskGap: boolean,
+  signals: SuitabilitySignals,
+): EvidenceGap {
+  const affectedClaimId = affectedClaimIdForGap(isAiTaskGap, signals);
+  if (signals.standardizedMeasurementDependency) {
+    return buildMeasurementGap(question, sources, affectedClaimId);
+  }
+  if (signals.prevalenceRisk) return buildPrevalenceGap(question, sources, affectedClaimId);
+  return buildExperienceGap(question, sources, affectedClaimId);
 }
 
 function reframeGap(gap: EvidenceGap, question: string): EvidenceGap {
@@ -313,6 +344,7 @@ function reframeGap(gap: EvidenceGap, question: string): EvidenceGap {
       ? "一条最近真实经历可以具体说明受阻发生在什么步骤、当事人如何应对以及最终结果。"
       : "一条最近真实经历可以具体说明某个步骤如何发生变化，以及当事人采取了什么判断或行动。",
     affectedClaim: gap.affectedClaim,
+    affectedClaimId: gap.affectedClaimId,
     whyUnresolved:
       "原 Gap 试图从单个案例推断群体频率，问题与 Observation 粒度不匹配；改写后只要求描述一次可核实的具体经历。",
     missingObservation: observation,
@@ -448,7 +480,13 @@ export function evaluateSearchEvidence({
     );
   }
 
-  const candidateGap = buildCandidateGap(question, allSources);
+  const suitabilitySignals = analyzeSuitabilitySignals(question);
+  const candidateGap = buildCandidateGap(
+    question,
+    allSources,
+    isAiQuestion && hasTaskSignal,
+    suitabilitySignals,
+  );
   const gapSuitability = evaluateGapSuitability(candidateGap, question);
 
   if (gapSuitability.standardizedMeasurementDependency) {
@@ -460,7 +498,7 @@ export function evaluateSearchEvidence({
         allSources.slice(0, 3),
       ),
     );
-  } else if (gapSuitability.prevalenceRisk) {
+  } else if (suitabilitySignals.prevalenceRisk || gapSuitability.prevalenceRisk) {
     unsupported.push(
       claim(
         "claim-prevalence-result-unsupported",
@@ -542,6 +580,7 @@ export function createEvidenceMission({
   question,
   gap,
 }: MissionInput): EvidenceMission {
+  const now = new Date().toISOString();
   return {
     id: randomUUID(),
     investigationId,
@@ -589,8 +628,10 @@ export function createEvidenceMission({
         required: false,
       },
     ],
+    status: MISSION_STATUS.OPEN,
     estimatedSeconds: 50,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -612,16 +653,39 @@ function uniqueClaims(claims: ClaimAssessment[]): ClaimAssessment[] {
   });
 }
 
+function uniqueIds(ids: string[]): string[] {
+  return [...new Set(ids)];
+}
+
+function findClaimById(evidenceState: EvidenceState, claimId: string): ClaimAssessment | undefined {
+  return [...evidenceState.supported, ...evidenceState.unsupported].find(
+    (item) => item.id === claimId,
+  );
+}
+
 export function reevaluateKnowledgeState({
   evidenceState,
-  missions,
+  mission,
+  gap,
   evidence,
 }: ReEvaluationInput): ReEvaluation {
   const now = new Date().toISOString();
-  const relevantEvidence = firstHandEvidence(evidence);
+  if (mission.evidenceGapId !== gap.id) {
+    throw new Error(
+      `Mission ${mission.id} references Gap ${mission.evidenceGapId}, not Gap ${gap.id}.`,
+    );
+  }
+
+  const targetClaim = findClaimById(evidenceState, gap.affectedClaimId);
+  if (!targetClaim) {
+    throw new Error(
+      `Gap ${gap.id} references missing Claim ${gap.affectedClaimId} in this Investigation.`,
+    );
+  }
+
+  const missionEvidence = evidence.filter((record) => record.missionId === mission.id);
+  const relevantEvidence = firstHandEvidence(missionEvidence);
   const stillUnsupported = uniqueClaims(evidenceState.unsupported);
-  const activeGap = evidenceState.nextGap ?? evidenceState.candidateGap;
-  const mission = missions.find((item) => item.evidenceGapId === activeGap?.id);
 
   if (relevantEvidence.length === 0) {
     return {
@@ -630,50 +694,46 @@ export function reevaluateKnowledgeState({
       limitations: evidenceState.limitations,
       knowledgeState: KNOWLEDGE_STATE.UNRESOLVED,
       whyStateChanged:
-        "本次 Evidence 未同时满足“与 Gap 相关、第一手、包含可核对事件与本人判断”的条件，因此 Knowledge State 保持不变。",
+        "目标 Mission 下没有同时满足“与 Gap 相关、第一手、包含可核对事件与本人判断”的 Evidence，因此 Knowledge State 保持不变。",
       updatedAt: now,
     };
   }
 
-  const supportedNow = [
-    claim(
-      `claim-first-hand-${stableId("claim", activeGap?.id ?? "unknown")}`,
-      activeGap?.claim ?? "至少一条与当前 Gap 直接相关的第一手观察增加了该具体 Claim 的支持。",
-      `由 ${relevantEvidence.length} 条相关 E1/E2 Evidence 支持；Artifact（如有）只增强对应个体观察，不证明总体结论。`,
-      [],
-      relevantEvidence.map((record) => record.id),
-    ),
+  const relevantEvidenceIds = relevantEvidence.map((record) => record.id);
+  const supportedNow: ClaimAssessment[] = [
+    {
+      ...targetClaim,
+      evidenceIds: uniqueIds([...targetClaim.evidenceIds, ...relevantEvidenceIds]),
+    },
   ];
 
   const limitations = [
     ...evidenceState.limitations,
     SMALL_SAMPLE_LIMITATION,
-    mission
-      ? `当前只验证 Mission“${mission.title}”覆盖的单次观察，未建立总体统计。`
-      : "当前缺少稳定 Mission 与 Evidence 的关联，总体统计仍未建立。",
+    `当前只验证 Mission“${mission.title}”覆盖的单次观察，未建立总体统计。`,
   ];
 
   return {
     supportedNow,
-    stillUnsupported,
+    stillUnsupported: uniqueClaims(stillUnsupported.filter((item) => item.id !== targetClaim.id)),
     limitations,
     knowledgeState: KNOWLEDGE_STATE.EARLY_EVIDENCE,
-    whyStateChanged:
-      "新增 Evidence 与当前 Gap 直接相关，属于 E1/E2 第一手观察，并包含可核对事件与本人判断，因此从 UNRESOLVED 推进到 EARLY_EVIDENCE。",
+    whyStateChanged: `Mission ${mission.id} → Gap ${gap.id} → Claim ${targetClaim.id} 的关联 Evidence ${relevantEvidenceIds.join(", ")} 属于 E1/E2 第一手观察；本次仅使用该 Mission 下的 Evidence。`,
     updatedAt: now,
   };
 }
-
 export function buildKnowledgeStateFromReevaluation(
   previous: KnowledgeState,
   reevaluation: ReEvaluation,
   evidenceCount: number,
 ): KnowledgeState {
   const status: KnowledgeStateStatus = reevaluation.knowledgeState;
+  const supported = new Map(previous.supported.map((item) => [item.id, item]));
+  for (const item of reevaluation.supportedNow) supported.set(item.id, item);
   return {
     status,
     evidenceCount,
-    supported: uniqueClaims([...previous.supported, ...reevaluation.supportedNow]),
+    supported: [...supported.values()],
     unsupported: reevaluation.stillUnsupported,
     limitations: reevaluation.limitations,
     ...(status === KNOWLEDGE_STATE.UNRESOLVED && previous.nextGap

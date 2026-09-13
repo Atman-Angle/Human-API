@@ -60,7 +60,7 @@ Question
 → Candidate Evidence Gap
 → Gap Suitability Gate
 → MISSION_READY | NEEDS_REFRAMING | NOT_SUITABLE_FOR_HUMAN_MISSION
-→ Mission or Stop
+→ OPEN Mission or Stop
 → Human Evidence
 → Evidence Grade / Gap Match
 → Re-evaluation
@@ -72,6 +72,7 @@ Question
 - `MISSION_READY`：允许创建 Mission。
 - `NEEDS_REFRAMING`：最多自动 Reframe 一次，然后重新评估。
 - `NOT_SUITABLE_FOR_HUMAN_MISSION`：停止，不创建 Mission。
+- Mission 创建为 `OPEN`；只有 `OPEN` 接受 Evidence，`CLOSED` 仅保留读取与历史归因。
 - E0 不得推进 Knowledge State。
 - E1/E2 只代表当前个体的第一手 Observation，不能外推为总体统计。
 - `LIVE → CACHE → GOLDEN_FIXTURE` fallback 必须保留，且来源不得伪装。
@@ -136,7 +137,7 @@ packages/
 | 产品范围 / Non-Goals                 | `docs/PROJECT_LOCK.md` |
 | 当前任务 Owner                       | `TASKS.md`             |
 
-Community Authority 是逻辑 Authority，不要求立即创建独立 package。不得在 UI、API route 或 Agent 中复制同样职责。
+Community Authority 是逻辑 Authority，不要求立即创建独立 package。A03 的 Mission Lifecycle 最小实现位于 `apps/api/src/mission-lifecycle.ts`，作为当前 Application 边界；不得在 UI、API route 或 Agent 中复制同样职责。
 
 ---
 
@@ -151,7 +152,7 @@ Evidence
 
 每个 Evidence 必须能够回溯到其 Mission、所属 Evidence Gap，以及该 Gap 影响的 Claim。目标是让新增 Evidence 只影响相关 Claim 和有资格影响的 Knowledge State。
 
-当前 `EvidenceGap.affectedClaim` 是人类可读文本，不能作为稳定归因标识。目标 Contract 需要 `affectedClaimId`，但不得因此复制第二套 Claim Authority；`affectedClaimId` 应引用 Investigation 内已有的 Claim/ClaimAssessment 身份。
+当前 Contract 已使用稳定 ID 建立该链路：`EvidenceGap.affectedClaim` 仅负责展示，`affectedClaimId` 引用 Investigation 内已有的 Claim/ClaimAssessment；Mission 通过 `evidenceGapId` 指向 Gap；EvidenceRecord 通过 `missionId` 指向 Mission。`investigationId` 由所属 Investigation Aggregate 提供，归因不得通过展示文本匹配生成。
 
 ---
 
@@ -159,11 +160,11 @@ Evidence
 
 以下风险必须作为后续架构约束处理：
 
-1. 当前 Evidence 无法稳定归因到 Claim，`affectedClaim` 字符串不足以支撑可信的 Knowledge State Transition。
-2. 当前 Re-evaluation 可能读取 Investigation 下全部 Evidence，而不是只读取与目标 Mission、Gap 和 Claim 相关的 Evidence。
-3. 当前 Mission 没有 `OPEN / CLOSED` 生命周期，无法表达何时接受 Evidence、何时停止参与。
-4. 当前没有 Impact Receipt，贡献者看不到自己的 Observation 是否被接受、影响了什么、仍然缺什么。
-5. 当前 route handler 直接修改 Evidence 与 Knowledge State，只适合作为 vertical slice，不是长期编排边界。
+1. Mission 当前只实现创建 `OPEN` 与内部 `closeMission(...)` transition；没有公开关闭/重新打开流程，也没有自动关闭策略。
+2. ✅ RESOLVED: ImpactReceipt 已在 Evidence Intake 时生成（`apps/api/src/evidence-intake.ts`），包含 `stateBefore`/`stateAfter`/`stillMissing`，`GET /api/evidence/:id/impact` 可从 Investigation 状态重建。
+3. ✅ RESOLVED: `submitMissionEvidence()` Application Action（`apps/api/src/evidence-intake.ts`）已将 Evidence Intake 收束为完整编排流；route 只做 parse → invoke → map response，不再直接改 Knowledge State。
+
+Evidence 归因与单次 Re-evaluation 隔离已由 A02 收敛；Mission 的 OPEN / CLOSED 接受边界由 A03 建立；多 Mission 的完整生命周期编排仍属于后续任务。
 
 这些风险不能通过在 UI 中补文案解决，必须由 Contract、Agent、Evidence、Community 和 Application 层共同收敛。
 

@@ -1,0 +1,13 @@
+# 将下面用户名替换成你们真实 GitHub 用户名
+
+/apps/web/                 @member-b
+
+/apps/api/                 @member-a
+/packages/agent/           @member-a
+
+/packages/evidence/        @member-c
+
+# Contract 影响所有人，建议至少两人 Review
+/packages/contracts/       @member-a @member-b @member-c
+
+/docs/                     @member-c

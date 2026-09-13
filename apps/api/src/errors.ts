@@ -1,4 +1,5 @@
 import type { ApiError, NormalizedSearchError, SearchErrorCode } from "@human-api/contracts";
+import { LLMAdapterError } from "./llm/discussion-organizer.js";
 
 const RETRYABLE_CODES = new Set<SearchErrorCode>([
   "UPSTREAM_TIMEOUT",
@@ -44,6 +45,21 @@ export function searchError(
 
 export function toHttpError(error: unknown): HttpError {
   if (error instanceof HttpError) return error;
+  if (error instanceof LLMAdapterError) {
+    const map = {
+      LLM_TIMEOUT: 504,
+      LLM_RATE_LIMIT: 429,
+      LLM_INVALID_RESPONSE: 502,
+      LLM_UPSTREAM_UNAVAILABLE: 503,
+      LLM_AUTH_REQUIRED: 401,
+    } as const;
+    return new HttpError(
+      map[error.code],
+      error.code === "LLM_AUTH_REQUIRED" ? "AUTH_REQUIRED" : error.code,
+      error.message,
+      error.code !== "LLM_INVALID_RESPONSE" && error.code !== "LLM_AUTH_REQUIRED",
+    );
+  }
   if (error instanceof SearchAdapterError) {
     const statusByCode: Partial<Record<SearchErrorCode, number>> = {
       AUTH_REQUIRED: 401,

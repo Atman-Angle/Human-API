@@ -538,3 +538,69 @@ Ranking
 积分经济
 复杂社交图谱
 ```
+
+# 36 小时后端收敛任务
+
+## A08 - Real LLM Knowledge Object Orchestration
+
+Owner: A
+
+Status: READY
+
+Allowed Paths:
+
+```text
+apps/api/**
+packages/agent/**
+packages/contracts/**
+packages/evidence/**
+packages/community/**
+packages/persistence/**
+```
+
+Must Not Modify:
+
+```text
+apps/web/**
+```
+
+Acceptance Criteria:
+
+- 默认使用真实 LLM adapter 处理 Discussion extraction、Knowledge Object routing、Gap discovery 和 Claim re-evaluation。
+- LLM 输出经过 Contract Schema 校验；无效响应不得静默吞掉。
+- 真实 LLM 失败至少区分 timeout、rate limit、invalid response、upstream unavailable。
+- LLM 不得绕过 Evidence Grade、Gap Match、Mission OPEN/CLOSED 和 Re-evaluation isolation。
+- 每次 LLM 运行保留 `runId`、`agentAction`、`inputRefs`、`model`、`provenance`、`status`、`limitations`、`createdAt`。
+- 支持 `LIVE → CACHE → GOLDEN_FIXTURE`，并显式返回来源。
+- 使用 deterministic fake adapter 覆盖测试，不在测试中依赖真实 LLM。
+- Golden AI Coding Knowledge Object 可完成：Discussion → Agent organization → Gap/Mission → Observation → Re-evaluation → Impact Receipt。
+
+## A09 - Knowledge Object Read Projection
+
+Owner: A
+
+Status: READY
+
+Allowed Paths:
+
+```text
+apps/api/**
+packages/contracts/**
+packages/community/**
+packages/persistence/**
+```
+
+Must Not Modify:
+
+```text
+apps/web/**
+packages/agent/**
+packages/evidence/**
+```
+
+Acceptance Criteria:
+
+- 提供 Knowledge Object detail、discussion organization、mission、updated state 和 impact receipt 的读取能力。
+- 不新增与 Investigation、ClaimAssessment、Evidence 等已有 Authority 冲突的第二套领域模型。
+- 前端可以通过一个稳定 projection 完成完整 Golden Demo。
+- Projection 保留 Claims、Evidence、冲突、限制条件、Open Questions、Missions、Recent Changes 与 provenance。

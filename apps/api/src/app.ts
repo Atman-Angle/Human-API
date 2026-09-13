@@ -14,16 +14,20 @@ import {
   createEvidenceMission,
   createInitialKnowledgeState,
   evaluateSearchEvidence,
+  evaluateGapSuitability,
 } from "@human-api/agent";
 
 import { HttpError, toHttpError } from "./errors.js";
 import { submitMissionEvidence } from "./evidence-intake.js";
 import type { InMemoryInvestigationRepository } from "./repository.js";
 import type { SearchService } from "./search-service.js";
+import { DiscussionInputSchema } from "@human-api/contracts";
+import type { DiscussionOrganizer } from "./llm/discussion-organizer.js";
 
 export interface AppDependencies {
   repository: InMemoryInvestigationRepository;
   searchService: SearchService;
+  discussionOrganizer?: DiscussionOrganizer;
   clock?: () => Date;
   idFactory?: () => string;
 }
@@ -108,6 +112,71 @@ export function createRequestHandler(dependencies: AppDependencies) {
       // ============================
       // GET /api/investigations
       // ============================
+      if (request.method === "POST" && path === "/api/discussions/organize") {
+        if (!dependencies.discussionOrganizer)
+          throw new HttpError(
+            503,
+            "UPSTREAM_UNAVAILABLE",
+            "Discussion organizer is not configured.",
+          );
+        const input = parseOrThrow(DiscussionInputSchema, await readJson(request));
+        const result = await dependencies.discussionOrganizer.organize(input);
+        if (input.investigationId) {
+          const investigation = dependencies.repository.get(input.investigationId);
+          if (investigation) {
+            investigation.discussions.push(input);
+            investigation.discussionOrganizations.push(result.organization);
+            investigation.llmRuns.push(result.run);
+            for (const claim of result.organization.claims) {
+              if (
+                !investigation.evidenceState.supported.some((item) => item.id === claim.id) &&
+                !investigation.evidenceState.unsupported.some((item) => item.id === claim.id)
+              ) {
+                investigation.evidenceState.unsupported.push(claim);
+              }
+            }
+            const gap = result.organization.gaps.find((item) =>
+              investigation.evidenceState.unsupported.some(
+                (claim) => claim.id === item.affectedClaimId,
+              ),
+            );
+            if (gap) {
+              investigation.evidenceState.candidateGap = gap;
+              investigation.evidenceState.nextGap = gap;
+              investigation.evidenceState.gapSuitability = evaluateGapSuitability(
+                gap,
+                investigation.question,
+              );
+              const effectiveGap = investigation.evidenceState.gapSuitability.reframedGap ?? gap;
+              investigation.evidenceState.nextGap = effectiveGap;
+              if (
+                investigation.evidenceState.gapSuitability.status ===
+                GAP_SUITABILITY_STATUS.MISSION_READY
+              ) {
+                if (
+                  !investigation.missions.some(
+                    (mission) => mission.evidenceGapId === effectiveGap.id,
+                  )
+                ) {
+                  investigation.missions.push(
+                    createEvidenceMission({
+                      investigationId: investigation.id,
+                      question: investigation.question,
+                      gap,
+                    }),
+                  );
+                  appendAction(investigation.actions, AGENT_ACTION.CREATE_MISSION);
+                }
+              }
+            }
+            investigation.updatedAt = clock().toISOString();
+            dependencies.repository.save(investigation);
+          }
+        }
+        sendJson(response, 200, result, requestId);
+        return;
+      }
+
       if (request.method === "GET" && path === "/api/investigations") {
         const all = dependencies.repository.listInvestigations();
         const items = all.map((inv) => ({
@@ -197,12 +266,57 @@ export function createRequestHandler(dependencies: AppDependencies) {
           actions: buildInitialAgentActions(evidenceState),
           missions: [],
           evidence: [],
+          discussions: [],
+          discussionOrganizations: [],
+          llmRuns: [],
           knowledgeState: createInitialKnowledgeState(evidenceState, now),
           createdAt: now,
           updatedAt: now,
         };
         dependencies.repository.save(investigation);
         sendJson(response, 201, investigation, requestId);
+        return;
+      }
+
+      // ============================
+      // GET /api/knowledge-objects/:id
+      // ============================
+      const objectMatch = /^\/api\/knowledge-objects\/([^/]+)$/.exec(path);
+      if (request.method === "GET" && objectMatch?.[1]) {
+        const investigation = dependencies.repository.get(decodeURIComponent(objectMatch[1]));
+        if (!investigation) throw new HttpError(404, "NOT_FOUND", "Knowledge Object not found.");
+        sendJson(
+          response,
+          200,
+          {
+            id: investigation.id,
+            kind: "KNOWLEDGE_OBJECT",
+            question: investigation.question,
+            claims: [
+              ...investigation.knowledgeState.supported,
+              ...investigation.knowledgeState.unsupported,
+            ],
+            knowledgeState: investigation.knowledgeState,
+            evidenceGaps: [
+              investigation.evidenceState.nextGap,
+              investigation.evidenceState.candidateGap,
+            ].filter(Boolean),
+            missions: investigation.missions,
+            evidence: investigation.evidence,
+            discussions: investigation.discussions,
+            discussionOrganizations: investigation.discussionOrganizations,
+            llmRuns: investigation.llmRuns,
+            reevaluation: investigation.reevaluation,
+            provenance: {
+              search: {
+                zhihu: investigation.searches.zhihu.provenance,
+                global: investigation.searches.global.provenance,
+              },
+            },
+            updatedAt: investigation.updatedAt,
+          },
+          requestId,
+        );
         return;
       }
 

@@ -9,6 +9,10 @@ import {
 } from "@human-api/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRequestHandler } from "../src/app.js";
+import {
+  FakeDiscussionOrganizer,
+  type DiscussionOrganizer,
+} from "../src/llm/discussion-organizer.js";
 import type { SearchCache } from "../src/cache/file-search-cache.js";
 import { closeMission } from "../src/mission-lifecycle.js";
 import { InMemoryInvestigationRepository } from "../src/repository.js";
@@ -92,7 +96,11 @@ interface TestServer {
   repository: InMemoryInvestigationRepository;
 }
 
-async function startServer(question: string, excerpts: string[]): Promise<TestServer> {
+async function startServer(
+  question: string,
+  excerpts: string[],
+  discussionOrganizer?: DiscussionOrganizer,
+): Promise<TestServer> {
   const items = excerpts.map((excerpt, index) =>
     source(index % 2 === 0 ? SOURCE_PROVIDER.ZHIHU : SOURCE_PROVIDER.GLOBAL, `s${index}`, excerpt),
   );
@@ -122,6 +130,7 @@ async function startServer(question: string, excerpts: string[]): Promise<TestSe
   const handler = createRequestHandler({
     repository,
     searchService: service,
+    ...(discussionOrganizer ? { discussionOrganizer } : {}),
     clock: () => new Date(NOW),
     idFactory: () => `id-${++sequence}`,
   });
@@ -391,4 +400,71 @@ describe("Golden vertical slice", () => {
     expect(saved.status).toBe(200);
     expect(saved.body.missions).toHaveLength(0);
   });
+});
+
+it("connects organized discussion to mission, observation and updated projection over HTTP", async () => {
+  const organizer = new FakeDiscussionOrganizer((input) => {
+    const originalGap = seed.evidenceState.nextGap!;
+    const originalClaim = [...seed.evidenceState.supported, ...seed.evidenceState.unsupported].find(
+      (c) => c.id === originalGap.affectedClaimId,
+    )!;
+    return {
+      discussionId: input.id,
+      classifications: [
+        { label: "OBSERVATION", text: input.content, rationale: "Deterministic test observation" },
+      ],
+      claims: [{ ...originalClaim, id: "discussion-claim", evidenceIds: [] }],
+      gaps: [{ ...originalGap, id: "discussion-gap", affectedClaimId: "discussion-claim" }],
+      relations: [],
+      limitations: ["Test fixture, not LIVE"],
+    };
+  });
+  const { baseUrl } = await startServer(
+    AI_QUESTION,
+    [
+      "初级开发者现在用 AI 生成接口和测试，但还是要自己检查异常场景和边界条件。",
+      "学生和实习生把部分调试、文档和代码理解任务交给 AI Coding，人类负责最终验证。",
+    ],
+    organizer,
+  );
+  const seed = await createInvestigation(baseUrl, AI_QUESTION);
+  const discussion = {
+    id: "discussion-http",
+    investigationId: seed.id,
+    content: "我在实习项目中用 AI 生成接口测试，自己检查异常边界。",
+    createdAt: NOW,
+    source: "test",
+  };
+  const organized = await post(`${baseUrl}/api/discussions/organize`, discussion);
+  expect(organized.status).toBe(200);
+  expect((await organized.json()).run.provenance).toBe("GOLDEN_FIXTURE");
+  const saved = await request<Investigation>(`${baseUrl}/api/investigations/${seed.id}`);
+  expect(saved.body.discussions).toHaveLength(1);
+  const mission = saved.body.missions.find((m) => m.evidenceGapId === "discussion-gap");
+  expect(mission).toBeDefined();
+  await post(`${baseUrl}/api/discussions/organize`, { ...discussion, id: "discussion-http-2" });
+  const repeated = await request<Investigation>(`${baseUrl}/api/investigations/${seed.id}`);
+  expect(repeated.body.missions.filter((m) => m.evidenceGapId === "discussion-gap")).toHaveLength(
+    1,
+  );
+  const submitted = await post(`${baseUrl}/api/missions/${mission!.id}/evidence`, {
+    statement: "接口测试和异常边界以前自己写，现在主要由 Claude Code 生成。",
+    participantType: "实习生",
+    experience: "我最近三个月在实习项目中持续使用 Claude Code。",
+    task: "接口测试、异常场景和边界条件",
+    aiRole: "Claude Code 生成测试草稿和常见异常分支。",
+    humanJudgment: "我检查业务语义、边界条件和异常场景是否符合真实接口。",
+  });
+  expect(submitted.status).toBe(201);
+  const result = await submitted.json();
+  expect(result.record.grade).toBe("E1_FIRST_HAND");
+  expect(result.receipt.affectedClaimId).toBe("discussion-claim");
+  expect(result.investigation.reevaluation).toBeDefined();
+  const projection = await fetch(`${baseUrl}/api/knowledge-objects/${seed.id}`);
+  expect(projection.status).toBe(200);
+  const updated = await projection.json();
+  expect(updated.discussions).toHaveLength(2);
+  expect(updated.evidence).toHaveLength(1);
+  expect(updated.llmRuns).toHaveLength(2);
+  expect(updated.knowledgeState).toEqual(result.investigation.knowledgeState);
 });

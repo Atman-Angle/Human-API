@@ -288,6 +288,8 @@ interface Investigation {
 | `GET`  | `/api/missions/:id`                | `200 { mission: EvidenceMission, evidence: EvidenceRecord[] }`      |
 | `POST` | `/api/missions/:id/evidence`       | `201 { record, receipt, investigation }`                            |
 | `GET`  | `/api/evidence/:id/impact`         | `200 ImpactReceipt`                                                 |
+| POST   | /api/discussions/organize          | 200 { organization: DiscussionOrganization, run: LLMRun }           |
+| GET    | /api/knowledge-objects/:id         | 200 KnowledgeObjectProjection                                       |
 
 ### `POST /api/investigations`
 
@@ -510,3 +512,5 @@ Persist
 - Ranking 或积分接口
 
 这些能力需要分别完成产品锁定、Contract First 与 Authority Review，不得提前写入当前 API 或前端 DTO。
+
+DiscussionOrganization additionally accepts optional routing (knowledgeObjectId, confidence 0–1, uncertain, rationale), summary, and missionRecommended. relations defaults to an empty array and contains claimId, relation (SUPPORTS / CHALLENGES / LIMITS / OPENS_QUESTION), and rationale. These are candidate interpretations, not Evidence Grade or Knowledge State decisions.

@@ -45,6 +45,13 @@ import {
   listMissions,
 } from "@/lib/api-client";
 import {
+  getMockCircle,
+  listMockCircles,
+  listMockPosts,
+  type MockCircle,
+  type MockPost,
+} from "@/lib/mock-circles";
+import {
   createMockInvestigation,
   listMockContributions,
   listMockInvestigations,
@@ -121,19 +128,21 @@ export function AppHeader({
   hasInvestigation,
   onSearch,
   onMyInvestigations,
+  onVerify,
   activeNav,
 }: {
   onReset: () => void;
   hasInvestigation: boolean;
   onSearch?: () => void;
   onMyInvestigations?: () => void;
-  activeNav?: "home" | "search" | "mine";
+  onVerify?: () => void;
+  activeNav?: "home" | "verify" | "search" | "mine";
 }) {
   const nav = activeNav ?? "home";
   return (
     <header className="site-header">
       <div className="header-inner">
-        <button className="brand" type="button" onClick={onReset} aria-label="返回求证首页">
+        <button className="brand" type="button" onClick={onReset} aria-label="返回首页">
           <span className="brand-mark">H</span>
           <span className="brand-name">知乎 · 求证 Agent</span>
         </button>
@@ -142,6 +151,13 @@ export function AppHeader({
             className={"nav-item" + (nav === "home" ? " active" : "")}
             type="button"
             onClick={onReset}
+          >
+            首页
+          </button>
+          <button
+            className={"nav-item" + (nav === "verify" ? " active" : "")}
+            type="button"
+            onClick={onVerify}
           >
             求证
           </button>
@@ -177,8 +193,6 @@ export function AppHeader({
     </header>
   );
 }
-
-const topics = ["推荐", "AI", "科技", "编程", "教育", "职场", "数码", "更多"];
 
 function formatRelativeTime(value: string): string {
   const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
@@ -281,14 +295,307 @@ function StarIcon() {
   return <span className="star-glyph">★</span>;
 }
 
-function FeedHome({
+function CircleHeader({
+  circle,
+  retrieving,
+  lastIntegratedAt,
+  onRetrieve,
+}: {
+  circle: MockCircle;
+  retrieving: boolean;
+  lastIntegratedAt: string;
+  onRetrieve: () => void;
+}) {
+  return (
+    <section className="circle-header">
+      <div className="circle-identity">
+        <span className="circle-mark">{circle.name.slice(0, 1)}</span>
+        <div>
+          <h1>{circle.name} 圈子</h1>
+          <p>
+            {circle.tagline} · {circle.memberLabel}
+          </p>
+        </div>
+      </div>
+      <div className="circle-agent">
+        <span className="circle-agent-line">
+          <Sparkles size={15} />
+          Agent 已检索 {circle.discussionCount} 条知乎讨论 · 覆盖 {circle.topicCount} 个话题
+        </span>
+        <span className="circle-agent-line subtle">
+          最近整合：{formatRelativeTime(lastIntegratedAt)}
+        </span>
+        <button
+          className="circle-retrieve"
+          type="button"
+          onClick={onRetrieve}
+          disabled={retrieving}
+        >
+          {retrieving ? <LoaderCircle className="spin" size={16} /> : <RotateCcw size={16} />}
+          {retrieving ? "正在检索知乎…" : "重新检索并整合"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function AggregatedPostCard({
+  post,
+  onOpen,
+  showCircle,
+}: {
+  post: MockPost;
+  onOpen: (id: string) => void;
+  showCircle?: boolean;
+}) {
+  return (
+    <article className="post-card">
+      <button className="post-card-main" type="button" onClick={() => onOpen(post.id)}>
+        <div className="post-meta">
+          {showCircle ? <span className="post-circle">{post.circleName}</span> : null}
+          <span className="post-agent-badge">
+            <Sparkles size={13} />
+            Agent 聚合
+          </span>
+          <span className="post-time">{formatRelativeTime(post.updatedAt)}更新</span>
+        </div>
+        <h2 className="post-title">{post.title}</h2>
+        <p className="post-summary">{post.summary}</p>
+        <ul className="post-points">
+          {post.keyPoints.slice(0, 3).map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+        <div className="post-merged">
+          <span>整合自</span>
+          {post.mergedQuestions.map((question) => (
+            <em key={question}>{question}</em>
+          ))}
+        </div>
+        <div className="post-stats">
+          <span>
+            <Globe2 size={15} />
+            {post.sourceCount} 条知乎讨论
+          </span>
+          <span>
+            <CheckCircle2 size={15} />
+            {post.answerCount} 条回答
+          </span>
+          <span>
+            <MessageCircle size={15} />
+            热度 {post.heat}
+          </span>
+        </div>
+      </button>
+    </article>
+  );
+}
+
+function CirclePlaza({
+  circles,
+  onSelect,
+}: {
+  circles: MockCircle[];
+  onSelect: (slug: string) => void;
+}) {
+  return (
+    <section className="circle-plaza">
+      <div className="feed-section-heading">
+        <h2>圈子广场</h2>
+        <p>每个圈子都由 Agent 持续检索知乎讨论并整合成结构清晰的帖子。</p>
+      </div>
+      <div className="circle-grid">
+        {circles.map((circle) => (
+          <button
+            className="circle-tile"
+            type="button"
+            key={circle.slug}
+            onClick={() => onSelect(circle.slug)}
+          >
+            <span className="circle-tile-mark">{circle.name.slice(0, 1)}</span>
+            <strong>{circle.name}</strong>
+            <span>{circle.tagline}</span>
+            <small>
+              {circle.discussionCount} 条讨论 · {circle.topicCount} 个话题
+            </small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PostsHome({
+  posts,
+  circleSlug,
+  onSelectCircle,
+  onOpenPost,
+  onOpenInvestigation,
+  verifyItems,
+  verifyLoading,
+  notice,
+  onAsk,
+  onVerify,
+  onMine,
+}: {
+  posts: MockPost[];
+  circleSlug: string | null;
+  onSelectCircle: (slug: string | null) => void;
+  onOpenPost: (id: string) => void;
+  onOpenInvestigation: (id: string) => void;
+  verifyItems: MockFeedItem[];
+  verifyLoading: boolean;
+  notice?: string | null;
+  onAsk: () => void;
+  onVerify: () => void;
+  onMine: () => void;
+}) {
+  const circles = listMockCircles();
+  const isPlaza = circleSlug === "more";
+  const activeCircle = circleSlug && !isPlaza ? getMockCircle(circleSlug) : undefined;
+  const listedPosts = activeCircle
+    ? posts.filter((post) => post.circleSlug === activeCircle.slug)
+    : posts;
+  const [retrieving, setRetrieving] = useState(false);
+  const [integratedAt, setIntegratedAt] = useState<Record<string, string>>({});
+
+  function handleRetrieve(slug: string) {
+    setRetrieving(true);
+    window.setTimeout(() => {
+      setRetrieving(false);
+      setIntegratedAt((current) => ({ ...current, [slug]: new Date().toISOString() }));
+    }, 1400);
+  }
+  return (
+    <main className="feed-page">
+      <div className="feed-container">
+        <div className="feed-toolbar">
+          <div className="topic-row" aria-label="圈子与推荐">
+            <button
+              className={circleSlug === null ? "topic active" : "topic"}
+              type="button"
+              onClick={() => onSelectCircle(null)}
+            >
+              推荐
+            </button>
+            {circles.map((circle) => (
+              <button
+                className={circleSlug === circle.slug ? "topic active" : "topic"}
+                key={circle.slug}
+                type="button"
+                onClick={() => onSelectCircle(circle.slug)}
+              >
+                {circle.name}
+              </button>
+            ))}
+            <button
+              className={isPlaza ? "topic active" : "topic"}
+              type="button"
+              onClick={() => onSelectCircle("more")}
+            >
+              更多
+            </button>
+          </div>
+          <button className="ask-trigger" type="button" onClick={onAsk}>
+            <Sparkles size={16} />
+            发起求证
+          </button>
+        </div>
+        {activeCircle ? (
+          <>
+            <CircleHeader
+              circle={activeCircle}
+              retrieving={retrieving}
+              lastIntegratedAt={integratedAt[activeCircle.slug] ?? activeCircle.updatedAt}
+              onRetrieve={() => handleRetrieve(activeCircle.slug)}
+            />
+            {retrieving ? (
+              <div className="circle-progress" role="status">
+                <LoaderCircle className="spin" size={17} />
+                Agent 正在检索「{activeCircle.name}」圈子的知乎讨论，并重新整合标题与结构…
+              </div>
+            ) : null}
+            {listedPosts.length === 0 ? (
+              <div className="feed-empty">
+                <Sparkles size={24} />
+                <h2>{activeCircle.name} 圈子还没有聚合内容</h2>
+                <p>让 Agent 检索该圈子在知乎的讨论，整合成结构清晰的帖子。</p>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => handleRetrieve(activeCircle.slug)}
+                >
+                  让 Agent 检索这个圈子
+                </button>
+              </div>
+            ) : (
+              <div className="feed-list">
+                {listedPosts.map((post) => (
+                  <AggregatedPostCard key={post.id} post={post} onOpen={onOpenPost} />
+                ))}
+              </div>
+            )}
+          </>
+        ) : isPlaza ? (
+          <CirclePlaza circles={circles} onSelect={onSelectCircle} />
+        ) : (
+          <>
+            <section className="feed-section-heading">
+              <h2>推荐 · 来自各圈子的聚合帖</h2>
+              <p>Agent 先检索知乎讨论，再重新生成标题与结构；点开可以看到来源与知识边界。</p>
+            </section>
+            <div className="feed-list">
+              {listedPosts.map((post) => (
+                <AggregatedPostCard key={post.id} post={post} onOpen={onOpenPost} showCircle />
+              ))}
+            </div>
+            <section className="verify-strip">
+              <div className="verify-strip-heading">
+                <div>
+                  <h2>正在进行的求证</h2>
+                  <p>对具体问题发起的求证：Agent 划定知识边界，等待真正经历过的人补齐缺口。</p>
+                </div>
+                <button className="quiet-link" type="button" onClick={onVerify}>
+                  查看全部求证 →
+                </button>
+              </div>
+              {notice ? (
+                <div className="feed-notice compact" role="status">
+                  <Info size={16} />
+                  <span>{notice}</span>
+                </div>
+              ) : null}
+              {verifyLoading ? (
+                <div className="feed-loading">
+                  <LoaderCircle className="spin" size={18} />
+                  正在加载求证…
+                </div>
+              ) : (
+                <div className="feed-list">
+                  {verifyItems.slice(0, 2).map((item) => (
+                    <FeedCard item={item} onOpen={onOpenInvestigation} key={item.id} />
+                  ))}
+                </div>
+              )}
+            </section>
+            <button className="load-more" type="button" onClick={onMine}>
+              ↓ 加载更多
+            </button>
+            <p className="load-more-end">— 没有更多了 —</p>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function VerifyHome({
   items,
   loading,
   error,
   notice,
   onOpen,
   onAsk,
-  onMine,
 }: {
   items: MockFeedItem[];
   loading: boolean;
@@ -296,34 +603,28 @@ function FeedHome({
   notice?: string | null;
   onOpen: (id: string) => void;
   onAsk: () => void;
-  onMine: () => void;
 }) {
-  const [activeTopic, setActiveTopic] = useState("推荐");
-  const visibleItems =
-    activeTopic === "推荐" || activeTopic === "更多"
-      ? items
-      : items.filter((item) => item.topic === activeTopic);
   return (
     <main className="feed-page">
       <div className="feed-container">
-        <div className="feed-toolbar">
-          <div className="topic-row" aria-label="话题分类">
-            {topics.map((topic) => (
-              <button
-                className={topic === activeTopic ? "topic active" : "topic"}
-                key={topic}
-                type="button"
-                onClick={() => setActiveTopic(topic)}
-              >
-                {topic}
-              </button>
-            ))}
+        <section className="verify-hero">
+          <div>
+            <h1>求证</h1>
+            <p>
+              对某个具体问题发起求证：Agent 先划定已有证据与知识边界，再请真正经历过的人补齐缺口。
+            </p>
           </div>
           <button className="ask-trigger" type="button" onClick={onAsk}>
             <Sparkles size={16} />
             发起求证
           </button>
-        </div>
+        </section>
+        {notice ? (
+          <div className="feed-notice" role="status">
+            <Info size={17} />
+            <span>{notice}</span>
+          </div>
+        ) : null}
         {loading ? (
           <div className="feed-loading">
             <LoaderCircle className="spin" size={20} />
@@ -339,13 +640,7 @@ function FeedHome({
             </button>
           </div>
         ) : null}
-        {notice ? (
-          <div className="feed-notice" role="status">
-            <Info size={17} />
-            <span>{notice}</span>
-          </div>
-        ) : null}
-        {!loading && !error && visibleItems.length === 0 ? (
+        {!loading && !error && items.length === 0 ? (
           <div className="feed-empty">
             <Sparkles size={24} />
             <h2>还没有公开求证</h2>
@@ -356,20 +651,125 @@ function FeedHome({
           </div>
         ) : null}
         <div className="feed-list">
-          {visibleItems.map((item) => (
+          {items.map((item) => (
             <FeedCard item={item} onOpen={onOpen} key={item.id} />
           ))}
         </div>
-        {visibleItems.length > 0 ? (
-          <>
-            <button className="load-more" type="button" onClick={onMine}>
-              ↓ 加载更多
-            </button>
-            <p className="load-more-end">— 没有更多了 —</p>
-          </>
-        ) : null}
       </div>
     </main>
+  );
+}
+
+export function PostView({ post }: { post: MockPost }) {
+  const router = useRouter();
+  return (
+    <div className="app-shell">
+      <AppHeader
+        onReset={() => router.push("/")}
+        hasInvestigation={false}
+        onVerify={() => router.push("/#verify")}
+        onSearch={() => router.push("/#search")}
+        onMyInvestigations={() => router.push("/#mine")}
+        activeNav="home"
+      />
+      <main className="post-page">
+        <div className="post-container">
+          <button
+            className="back-link"
+            type="button"
+            onClick={() => router.push(`/?circle=${encodeURIComponent(post.circleSlug)}`)}
+          >
+            ← 返回 {post.circleName} 圈子
+          </button>
+          <article className="post-article">
+            <div className="post-meta">
+              <span className="post-circle">{post.circleName}</span>
+              <span className="post-agent-badge">
+                <Sparkles size={13} />
+                Agent 聚合
+              </span>
+              <span className="post-time">{formatRelativeTime(post.updatedAt)}更新</span>
+            </div>
+            <h1>{post.title}</h1>
+            <p className="post-lead">{post.summary}</p>
+            <div className="post-stats">
+              <span>
+                <Globe2 size={15} />
+                {post.sourceCount} 条知乎讨论
+              </span>
+              <span>
+                <CheckCircle2 size={15} />
+                {post.answerCount} 条回答
+              </span>
+              <span>
+                <MessageCircle size={15} />
+                热度 {post.heat}
+              </span>
+            </div>
+
+            <section className="post-section">
+              <h2>关键结论</h2>
+              <ul className="post-points">
+                {post.keyPoints.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="post-section">
+              <h2>整合自哪些讨论</h2>
+              <p className="post-section-note">
+                这些提问标题零散、彼此重复，Agent 合并后重新生成了上面的标题与结构。
+              </p>
+              <div className="post-merged stacked">
+                {post.mergedQuestions.map((question) => (
+                  <em key={question}>{question}</em>
+                ))}
+              </div>
+              <div className="post-tags">
+                {post.sourceTopics.map((topic) => (
+                  <span key={topic}>{topic}</span>
+                ))}
+              </div>
+            </section>
+
+            <section className="post-section">
+              <h2>引用回答节选</h2>
+              <div className="post-quotes">
+                {post.quotes.map((quote) => (
+                  <blockquote key={quote.author}>
+                    <p>{quote.excerpt}</p>
+                    <footer>
+                      {quote.author} · 赞同 {quote.voteUpCount}
+                    </footer>
+                  </blockquote>
+                ))}
+              </div>
+            </section>
+
+            <section className="post-frontier">
+              <div className="post-frontier-heading">
+                <CircleAlert size={17} />
+                <div>
+                  <h2>这篇帖子还无法确认的部分</h2>
+                  <p>{post.frontier}</p>
+                </div>
+              </div>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() =>
+                  router.push(`/?ask=${encodeURIComponent(post.title)}#search`)
+                }
+              >
+                <Sparkles size={16} />
+                对这个问题发起求证
+              </button>
+            </section>
+          </article>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -1510,11 +1910,17 @@ export default function HomePage() {
   }, []);
   const [showComposer, setShowComposer] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
-  const [activeNav, setActiveNav] = useState<"home" | "search" | "mine">("home");
+  const [activeNav, setActiveNav] = useState<"home" | "verify" | "search" | "mine">("home");
+  const [activeCircle, setActiveCircle] = useState<string | null>(null);
+  const [posts] = useState<MockPost[]>(() => listMockPosts());
 
   useEffect(() => {
-    function syncFromHash() {
+    function syncFromUrl() {
       const hash = window.location.hash.replace("#", "");
+      const params = new URLSearchParams(window.location.search);
+      setActiveCircle(params.get("circle"));
+      const presetQuestion = params.get("ask");
+      if (presetQuestion) setQuestion(presetQuestion);
       if (hash === "search") {
         setShowComposer(true);
         setShowConsole(false);
@@ -1527,26 +1933,49 @@ export default function HomePage() {
         setActiveNav("mine");
         return;
       }
+      if (hash === "verify") {
+        setShowComposer(false);
+        setShowConsole(false);
+        setActiveNav("verify");
+        return;
+      }
       setShowComposer(false);
       setShowConsole(false);
       setActiveNav("home");
     }
 
-    syncFromHash();
-    window.addEventListener("hashchange", syncFromHash);
-    return () => window.removeEventListener("hashchange", syncFromHash);
+    syncFromUrl();
+    window.addEventListener("hashchange", syncFromUrl);
+    window.addEventListener("popstate", syncFromUrl);
+    return () => {
+      window.removeEventListener("hashchange", syncFromUrl);
+      window.removeEventListener("popstate", syncFromUrl);
+    };
   }, []);
 
-  function setPanel(panel: "home" | "search" | "mine") {
-    window.history.replaceState(null, "", panel === "home" ? "/" : `/#${panel}`);
+  function panelUrl(panel: "home" | "verify" | "search" | "mine", circle: string | null) {
+    const query = circle ? `?circle=${encodeURIComponent(circle)}` : "";
+    return panel === "home" ? `/${query}` : `/${query}#${panel}`;
+  }
+
+  function setPanel(panel: "home" | "verify" | "search" | "mine") {
+    window.history.replaceState(null, "", panelUrl(panel, activeCircle));
     setShowComposer(panel === "search");
     setShowConsole(panel === "mine");
     setActiveNav(panel);
   }
 
+  function selectCircle(slug: string | null) {
+    setActiveCircle(slug);
+    window.history.replaceState(null, "", panelUrl("home", slug));
+    setShowComposer(false);
+    setShowConsole(false);
+    setActiveNav("home");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function goHome() {
-    setPanel("home");
-    router.push("/");
+    selectCircle(null);
   }
 
   async function handleCreateInvestigation(event: FormEvent<HTMLFormElement>) {
@@ -1579,17 +2008,33 @@ export default function HomePage() {
         hasInvestigation={false}
         onSearch={() => setPanel("search")}
         onMyInvestigations={() => setPanel("mine")}
+        onVerify={() => setPanel("verify")}
         activeNav={activeNav}
       />
-      <FeedHome
-        items={investigations}
-        loading={loadingInvestigations}
-        error={pageError}
-        notice={feedNotice}
-        onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
-        onAsk={() => setPanel("search")}
-        onMine={() => setPanel("mine")}
-      />
+      {activeNav === "verify" ? (
+        <VerifyHome
+          items={investigations}
+          loading={loadingInvestigations}
+          error={pageError}
+          notice={feedNotice}
+          onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
+          onAsk={() => setPanel("search")}
+        />
+      ) : (
+        <PostsHome
+          posts={posts}
+          circleSlug={activeCircle}
+          onSelectCircle={selectCircle}
+          onOpenPost={(id) => router.push(`/post/${encodeURIComponent(id)}`)}
+          onOpenInvestigation={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
+          verifyItems={investigations}
+          verifyLoading={loadingInvestigations}
+          notice={feedNotice}
+          onAsk={() => setPanel("search")}
+          onVerify={() => setPanel("verify")}
+          onMine={() => setPanel("mine")}
+        />
+      )}
       {showComposer ? (
         <div className="composer-overlay">
           <AskView

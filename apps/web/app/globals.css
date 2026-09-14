@@ -694,6 +694,407 @@ a {
 .feed-notice svg {
   flex: none;
 }
+.feed-notice.compact {
+  margin: 14px 0 0;
+  font-size: 12px;
+}
+
+/* ---- 圈子与 Agent 聚合帖 ---- */
+.feed-section-heading {
+  padding: 24px 2px 4px;
+}
+.feed-section-heading h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.feed-section-heading p {
+  margin: 0;
+  color: var(--sub);
+  font-size: 13px;
+}
+.circle-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 21px;
+  padding: 20px 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 5px 20px rgba(26, 55, 91, 0.035);
+}
+.circle-identity {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.circle-mark,
+.circle-tile-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: #fff;
+  background: linear-gradient(135deg, #1772f6, #4a9bff);
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.circle-identity h1 {
+  margin: 0 0 4px;
+  font-size: 19px;
+}
+.circle-identity p {
+  margin: 0;
+  color: var(--sub);
+  font-size: 13px;
+}
+.circle-agent {
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+  text-align: right;
+}
+.circle-agent-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue-ink);
+  font-size: 12.5px;
+}
+.circle-agent-line.subtle {
+  color: var(--muted);
+}
+.circle-retrieve {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  padding: 8px 14px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border: 1px solid rgba(23, 105, 233, 0.18);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.circle-retrieve:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+.circle-progress {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border-radius: 7px;
+  font-size: 13px;
+}
+.post-card {
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 5px 20px rgba(26, 55, 91, 0.035);
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s,
+    transform 0.16s;
+}
+.post-card:hover {
+  border-color: #cbdcf2;
+  box-shadow: 0 9px 27px rgba(23, 75, 140, 0.08);
+  transform: translateY(-1px);
+}
+.post-card-main {
+  display: block;
+  width: 100%;
+  padding: 22px 26px 20px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+  font-size: 12px;
+}
+.post-circle {
+  padding: 3px 9px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.post-agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--amber);
+}
+.post-time {
+  color: var(--muted);
+}
+.post-title {
+  margin: 0 0 10px;
+  font-size: 19px;
+  line-height: 1.45;
+}
+.post-summary {
+  margin: 0 0 12px;
+  color: var(--sub);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.post-points {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+.post-points li::marker {
+  color: var(--blue);
+}
+.post-merged {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.post-merged em {
+  padding: 3px 9px;
+  color: var(--sub);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-style: normal;
+}
+.post-merged.stacked {
+  align-items: flex-start;
+}
+.post-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 14px;
+  padding-top: 13px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.post-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.post-tags span {
+  padding: 4px 10px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.circle-plaza {
+  padding-bottom: 40px;
+}
+.circle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  padding-top: 18px;
+}
+.circle-tile {
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  padding: 20px;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s,
+    transform 0.16s;
+}
+.circle-tile:hover {
+  border-color: #cbdcf2;
+  box-shadow: 0 9px 27px rgba(23, 75, 140, 0.08);
+  transform: translateY(-1px);
+}
+.circle-tile strong {
+  font-size: 16px;
+}
+.circle-tile > span {
+  color: var(--sub);
+  font-size: 13px;
+}
+.circle-tile small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.verify-strip {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.verify-strip-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.verify-strip-heading h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.verify-strip-heading p {
+  margin: 0;
+  color: var(--sub);
+  font-size: 13px;
+}
+.quiet-link {
+  flex: none;
+  padding: 6px 0;
+  color: var(--blue-ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.verify-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 4px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.verify-hero h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+.verify-hero p {
+  margin: 0;
+  max-width: 620px;
+  color: var(--sub);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+/* ---- 聚合帖详情 ---- */
+.post-page {
+  padding: 26px 0 70px;
+}
+.post-container {
+  width: min(860px, 100%);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+.post-article {
+  margin-top: 14px;
+  padding: 30px 34px 26px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 7px 24px rgba(26, 55, 91, 0.04);
+}
+.post-article h1 {
+  margin: 0 0 14px;
+  font-size: 26px;
+  line-height: 1.45;
+}
+.post-lead {
+  margin: 0 0 16px;
+  color: var(--sub);
+  font-size: 15px;
+  line-height: 1.85;
+}
+.post-section {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.post-section h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.post-section-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.post-quotes {
+  display: grid;
+  gap: 12px;
+}
+.post-quotes blockquote {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--soft);
+  border-left: 3px solid var(--blue);
+  border-radius: 0 6px 6px 0;
+}
+.post-quotes p {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+.post-quotes footer {
+  color: var(--muted);
+  font-size: 12px;
+}
+.post-frontier {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-top: 28px;
+  padding: 18px 20px;
+  background: var(--amber-soft);
+  border-radius: 7px;
+}
+.post-frontier-heading {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  color: var(--amber);
+}
+.post-frontier-heading h2 {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 15px;
+}
+.post-frontier-heading p {
+  margin: 0;
+  color: var(--sub);
+  font-size: 13px;
+  line-height: 1.7;
+}
 .composer-overlay {
   position: fixed;
   z-index: 40;

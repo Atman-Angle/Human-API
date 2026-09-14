@@ -130,6 +130,7 @@ export default function InvestigationClient({ investigationId }: { investigation
         <AppHeader
           onReset={() => router.push("/")}
           hasInvestigation
+          onVerify={() => router.push("/#verify")}
           onSearch={() => router.push("/#search")}
           onMyInvestigations={() => router.push("/#mine")}
           activeNav="home"
@@ -150,6 +151,7 @@ export default function InvestigationClient({ investigationId }: { investigation
         <AppHeader
           onReset={() => router.push("/")}
           hasInvestigation
+          onVerify={() => router.push("/#verify")}
           onSearch={() => router.push("/#search")}
           onMyInvestigations={() => router.push("/#mine")}
           activeNav="home"
@@ -175,6 +177,7 @@ export default function InvestigationClient({ investigationId }: { investigation
       <AppHeader
         onReset={() => router.push("/")}
         hasInvestigation
+        onVerify={() => router.push("/#verify")}
         onSearch={() => router.push("/#search")}
         onMyInvestigations={() => router.push("/#mine")}
         activeNav="home"

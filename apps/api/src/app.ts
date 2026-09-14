@@ -31,14 +31,45 @@ import { submitMissionEvidence } from "./evidence-intake.js";
 import { closeMission } from "./mission-lifecycle.js";
 import type { InvestigationRepository } from "./repository.js";
 import type { SearchService } from "./search-service.js";
-import type { HotListResponse } from "@human-api/contracts";
+import type {
+  HotListResponse,
+  ZhihuCreatedContentsResponse,
+  ZhihuFolloweesResponse,
+  AuthSession,
+  ZhihuUser,
+} from "@human-api/contracts";
 import { DiscussionInputSchema } from "@human-api/contracts";
 import type { DiscussionOrganizer } from "./llm/discussion-organizer.js";
+import { buildAuthorizeUrl, exchangeCodeForToken, getUserInfo, type ZhihuUserResponse } from "./adapters/zhihu-oauth.js";
+import type { OfficialUserAdapter } from "./adapters/zhihu-user.js";
+
 
 export interface AppDependencies {
   repository: InvestigationRepository;
   searchService: SearchService;
   hotList?: { list(limit?: number): Promise<HotListResponse> };
+  community?: {
+    ringDetail(id: string): Promise<unknown>;
+    publishPin(input: Record<string, unknown>): Promise<unknown>;
+    listComments(token: string, type?: "pin" | "comment"): Promise<unknown>;
+    createComment(input: Record<string, unknown>): Promise<unknown>;
+  };
+  oauth?: { appId: string; appKey: string; redirectUri: string };
+  oauthStateStore?: {
+    create(redirectUri: string): string;
+    consume(state: string): string | null;
+    consumeLatest?(): string | null;
+  };
+  authSessionStore?: {
+    create(user: ZhihuUser, accessToken: string): string;
+    get(sessionId: string): AuthSession | null;
+    delete(sessionId: string): void;
+    getAccessToken?(sessionId: string): string | null;
+  };
+  userApi?: {
+    listFollowees(oauthToken: string, offset?: string, limit?: number): Promise<ZhihuFolloweesResponse>;
+    listContents(oauthToken: string, offset?: string, limit?: number): Promise<ZhihuCreatedContentsResponse>;
+  };
   discussionOrganizer?: DiscussionOrganizer;
   clock?: () => Date;
   idFactory?: () => string;
@@ -94,6 +125,25 @@ function parseOrThrow<T>(
   return result.data;
 }
 
+function parseSessionCookie(request: IncomingMessage): string | null {
+  const cookie = request.headers.cookie || "";
+  for (const part of cookie.split(";")) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith("zhihu_session=")) {
+      return decodeURIComponent(trimmed.slice("zhihu_session=".length));
+    }
+  }
+  return null;
+}
+
+function setSessionCookie(response: ServerResponse, sessionId: string): void {
+  response.setHeader("Set-Cookie", `zhihu_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
+}
+
+function clearSessionCookie(response: ServerResponse): void {
+  response.setHeader("Set-Cookie", "zhihu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+}
+
 function appendAction(actions: AgentAction[], action: AgentAction): void {
   if (!actions.includes(action)) actions.push(action);
 }
@@ -125,6 +175,45 @@ export function createRequestHandler(dependencies: AppDependencies) {
       createdAt: now,
       updatedAt: now,
     };
+    // --- LLM-powered per-source summary (backfill llmSummary) ---
+    if (dependencies.discussionOrganizer) {
+      try {
+        const allSources = [
+          ...zhihu.items,
+          ...global.items,
+        ];
+        const { summaries } = await dependencies.discussionOrganizer.summarizeSources(question, allSources);
+        for (const src of allSources) {
+          if (summaries[src.id]) {
+            src.llmSummary = summaries[src.id];
+          }
+        }
+      } catch (error) {
+        console.error(
+          "[prepareInvestigation] LLM source summarization failed:",
+          error instanceof Error ? error.message : String(error),
+        );
+        // Non-fatal; sources will show raw excerpts as fallback
+      }
+    }
+
+    // --- LLM-powered synthesized report ---
+    if (dependencies.discussionOrganizer) {
+      try {
+        const allSources = [
+          ...zhihu.items,
+          ...global.items,
+        ];
+        const { report } = await dependencies.discussionOrganizer.synthesizeReport(question, allSources);
+        investigation.synthesizedReport = report;
+      } catch (error) {
+        console.error(
+          "[prepareInvestigation] LLM report synthesis failed:",
+          error instanceof Error ? error.message : String(error),
+        );
+        // Non-fatal; sources will show without synthesized report as fallback
+      }
+    }
     dependencies.repository.save(investigation);
     return investigation;
   }
@@ -168,6 +257,13 @@ export function createRequestHandler(dependencies: AppDependencies) {
           dependencies.repository.save(investigation);
         }
         sendJson(response, 200, investigation, requestId);
+        return;
+      }
+
+      // POST /api/demo/reset
+      if (request.method === "POST" && path === "/api/demo/reset") {
+        dependencies.repository.reset();
+        sendJson(response, 200, { ok: true }, requestId);
         return;
       }
       const conversationMatch = /^\/api\/missions\/([^/]+)\/conversation(\/confirm)?$/.exec(path);
@@ -903,7 +999,110 @@ export function createRequestHandler(dependencies: AppDependencies) {
         throw new HttpError(404, "NOT_FOUND", "Evidence not found.");
       }
 
-      throw new HttpError(404, "NOT_FOUND", "Route not found.");
+            // ============================
+      // Zhihu OAuth Routes
+      // ============================
+      // GET /api/auth/zhihu/url
+      if (request.method === "GET" && path === "/api/auth/zhihu/url") {
+        const oauthConfig = dependencies.oauth;
+        if (!oauthConfig?.appId) throw new HttpError(503, "AUTH_REQUIRED", "OAuth not configured (ZHIHU_APP_ID).");
+        const redirectUri = url.searchParams.get("redirect_uri") || oauthConfig.redirectUri;
+        const state = dependencies.oauthStateStore?.create(redirectUri);
+        if (!state) throw new HttpError(500, "INTERNAL_ERROR", "Failed to create OAuth state.");
+        const authorizeUrl = buildAuthorizeUrl(oauthConfig.appId, redirectUri, state);
+        sendJson(response, 200, { url: authorizeUrl, state }, requestId);
+        return;
+      }
+
+      // POST /api/auth/zhihu/callback
+      if (request.method === "POST" && path === "/api/auth/zhihu/callback") {
+        const oauthConfig = dependencies.oauth;
+        if (!oauthConfig?.appId || !oauthConfig?.appKey) throw new HttpError(503, "AUTH_REQUIRED", "OAuth not configured.");
+        const body = await readJson(request) as Record<string, unknown>;
+        const code = String(body.code || body.authorization_code || "");
+        const returnedState = String(body.state || "");
+
+        // Verify state
+        let verifiedRedirectUri: string | null = null;
+        if (returnedState) {
+          verifiedRedirectUri = dependencies.oauthStateStore?.consume(returnedState) ?? null;
+        }
+        if (!verifiedRedirectUri) {
+          const allowed = oauthConfig.redirectUri;
+          if (!returnedState && allowed) {
+            verifiedRedirectUri = allowed;
+          }
+        }
+        const effectiveRedirectUri = verifiedRedirectUri || oauthConfig.redirectUri;
+
+        // Exchange code for token
+        const tokenResult = await exchangeCodeForToken(oauthConfig.appId, oauthConfig.appKey, effectiveRedirectUri, code);
+        const accessToken = tokenResult.access_token;
+
+        // Get user info
+        const userInfo: ZhihuUserResponse = await getUserInfo(accessToken);
+
+        // Create session
+        const sessionId = dependencies.authSessionStore?.create(
+          { uid: userInfo.uid, fullname: userInfo.fullname, headline: userInfo.headline ?? undefined, avatar: userInfo.avatar_path ?? undefined },
+          accessToken,
+        );
+        if (!sessionId) throw new HttpError(500, "INTERNAL_ERROR", "Failed to create session.");
+
+        setSessionCookie(response, sessionId);
+        sendJson(response, 200, {
+          user: { uid: userInfo.uid, fullname: userInfo.fullname, headline: userInfo.headline ?? "", avatar: userInfo.avatar_path ?? "" },
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        }, requestId);
+        return;
+      }
+
+      // GET /api/auth/zhihu/me
+      if (request.method === "GET" && path === "/api/auth/zhihu/me") {
+        const sessionId = parseSessionCookie(request);
+        if (!sessionId) return sendJson(response, 401, { error: { code: "AUTH_REQUIRED", message: "未登录" } }, requestId);
+        const session = dependencies.authSessionStore?.get(sessionId);
+        if (!session) return sendJson(response, 401, { error: { code: "AUTH_REQUIRED", message: "会话已过期" } }, requestId);
+        sendJson(response, 200, session, requestId);
+        return;
+      }
+
+      // POST /api/auth/zhihu/logout
+      if (request.method === "POST" && path === "/api/auth/zhihu/logout") {
+        const sessionId = parseSessionCookie(request);
+        if (sessionId) dependencies.authSessionStore?.delete(sessionId);
+        sendJson(response, 200, { ok: true }, requestId);
+        return;
+      }
+
+      // GET /api/auth/zhihu/followees
+      if (request.method === "GET" && path === "/api/auth/zhihu/followees") {
+        const sessionId = parseSessionCookie(request);
+        if (!sessionId) throw new HttpError(401, "AUTH_REQUIRED", "未登录");
+        const oauthToken = dependencies.authSessionStore?.getAccessToken?.(sessionId);
+        if (!oauthToken) throw new HttpError(401, "AUTH_REQUIRED", "会话已过期");
+        if (!dependencies.userApi) throw new HttpError(503, "AUTH_REQUIRED", "用户 API 未配置");
+        const offset = url.searchParams.get("offset") || "0";
+        const limit = Number(url.searchParams.get("limit")) || 20;
+        const result = await dependencies.userApi.listFollowees(oauthToken, offset, limit);
+        sendJson(response, 200, result, requestId);
+        return;
+      }
+
+      // GET /api/auth/zhihu/contents
+      if (request.method === "GET" && path === "/api/auth/zhihu/contents") {
+        const sessionId = parseSessionCookie(request);
+        if (!sessionId) throw new HttpError(401, "AUTH_REQUIRED", "未登录");
+        const oauthToken = dependencies.authSessionStore?.getAccessToken?.(sessionId);
+        if (!oauthToken) throw new HttpError(401, "AUTH_REQUIRED", "会话已过期");
+        if (!dependencies.userApi) throw new HttpError(503, "AUTH_REQUIRED", "用户 API 未配置");
+        const offset = url.searchParams.get("offset") || "0";
+        const limit = Number(url.searchParams.get("limit")) || 20;
+        const result = await dependencies.userApi.listContents(oauthToken, offset, limit);
+        sendJson(response, 200, result, requestId);
+        return;
+      }
+throw new HttpError(404, "NOT_FOUND", "Route not found.");
     } catch (error) {
       const httpError = toHttpError(error);
       sendJson(

@@ -2,10 +2,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { JsonInvestigationRepository } from "../src/repository.js";
+import { JsonInvestigationRepository, SqliteInvestigationRepository } from "../src/repository.js";
 import { createRuntime } from "../src/server.js";
 import { createServer } from "node:http";
-import type { Investigation } from "@human-api/contracts";
+import type { Investigation, MaintenanceRun } from "@human-api/contracts";
 
 describe("Investigation persistence", () => {
   it("preserves the complete aggregate through a real HTTP handler restart", async () => {
@@ -72,6 +72,80 @@ describe("Investigation persistence", () => {
       expect(second.get("inv-1")?.impactReceipts?.[0]?.evidenceId).toBe("evidence-1");
       expect(second.get("inv-1")?.impactReceipts?.[0]?.stateBefore).toBeUndefined();
     } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("round-trips the repository data through SQLite", () => {
+    const directory = mkdtempSync(join(tmpdir(), "human-gateway-sqlite-"));
+    const file = join(directory, "investigations.sqlite");
+    let first: SqliteInvestigationRepository | undefined;
+    let second: SqliteInvestigationRepository | undefined;
+    try {
+      first = new SqliteInvestigationRepository(file);
+      first.save({
+        id: "inv-sqlite",
+        question: "SQLite q",
+        missions: [{ id: "mission-sqlite", status: "OPEN" }],
+        evidence: [{ id: "evidence-sqlite", missionId: "mission-sqlite" }],
+        impactReceipts: [{ evidenceId: "evidence-sqlite", missionId: "mission-sqlite" }],
+      } as unknown as Investigation);
+      first.saveProposal({
+        id: "proposal-sqlite",
+        question: "SQLite proposal",
+        createdAt: "2026-09-14T00:00:00.000Z",
+      });
+      first.saveMaintenanceRun({
+        runId: "run-sqlite",
+        investigationId: "inv-sqlite",
+        trigger: "test",
+        startedAt: "2026-09-14T00:00:00.000Z",
+        completedAt: "2026-09-14T00:00:01.000Z",
+        status: "SUCCEEDED",
+        stateBefore: "UNRESOLVED",
+        stateAfter: "UNRESOLVED",
+        changed: false,
+        createdMissionIds: [],
+        closedMissionIds: [],
+        limitations: [],
+      } satisfies MaintenanceRun);
+      first.close();
+      first = undefined;
+
+      second = new SqliteInvestigationRepository(file);
+      expect(second.get("inv-sqlite")?.question).toBe("SQLite q");
+      expect(second.get("inv-sqlite")?.evidence[0]?.id).toBe("evidence-sqlite");
+      expect(second.getProposal("proposal-sqlite")?.question).toBe("SQLite proposal");
+      expect(second.listMaintenanceRuns("inv-sqlite")).toHaveLength(1);
+    } finally {
+      second?.close();
+      first?.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("imports the legacy JSON file once when creating a fresh SQLite database", () => {
+    const directory = mkdtempSync(join(tmpdir(), "human-gateway-migration-"));
+    const jsonFile = join(directory, "investigations.json");
+    const sqliteFile = join(directory, "investigations.sqlite");
+    let repository: SqliteInvestigationRepository | undefined;
+    try {
+      const legacy = new JsonInvestigationRepository(jsonFile);
+      legacy.save({
+        id: "inv-migrated",
+        question: "legacy question",
+        missions: [],
+        evidence: [],
+      } as unknown as Investigation);
+      repository = new SqliteInvestigationRepository(sqliteFile, { legacyJsonPath: jsonFile });
+      expect(repository.get("inv-migrated")?.question).toBe("legacy question");
+      repository.close();
+      repository = undefined;
+
+      repository = new SqliteInvestigationRepository(sqliteFile, { legacyJsonPath: jsonFile });
+      expect(repository.listInvestigations()).toHaveLength(1);
+    } finally {
+      repository?.close();
       rmSync(directory, { recursive: true, force: true });
     }
   });

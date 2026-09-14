@@ -24,6 +24,58 @@ export const EVIDENCE_GRADE = {
 
 export const SourceProviderSchema = z.enum(["ZHIHU", "GLOBAL"]);
 export type SourceProvider = z.infer<typeof SourceProviderSchema>;
+export const ZhihuUserSchema = z.object({
+  uid: z.number().int().positive(),
+  fullname: z.string().min(1),
+  headline: z.string().optional(),
+  avatar: z.string().optional(),
+});
+export type ZhihuUser = z.infer<typeof ZhihuUserSchema>;
+
+export const AuthSessionSchema = z.object({
+  user: ZhihuUserSchema,
+  expiresAt: z.string().datetime(),
+});
+export type AuthSession = z.infer<typeof AuthSessionSchema>;
+export const ZhihuPagingSchema = z.object({
+  isEnd: z.boolean(),
+  nextOffset: z.string().optional(),
+});
+export type ZhihuPaging = z.infer<typeof ZhihuPagingSchema>;
+
+export const ZhihuFolloweeSchema = z.object({
+  fullname: z.string().min(1),
+  urlToken: z.string().min(1),
+  url: z.string().url(),
+  avatarUrl: z.string().url().optional(),
+  headline: z.string().optional(),
+  followerCount: z.number().int().nonnegative().optional(),
+});
+export type ZhihuFollowee = z.infer<typeof ZhihuFolloweeSchema>;
+
+export const ZhihuFolloweesResponseSchema = z.object({
+  items: z.array(ZhihuFolloweeSchema),
+  paging: ZhihuPagingSchema,
+});
+export type ZhihuFolloweesResponse = z.infer<typeof ZhihuFolloweesResponseSchema>;
+
+export const ZhihuCreatedContentSchema = z.object({
+  contentType: z.string().min(1),
+  url: z.string().url(),
+  createdAt: z.number().int().nonnegative(),
+  likeCount: z.number().int().nonnegative().optional(),
+  commentCount: z.number().int().nonnegative().optional(),
+  favoriteCount: z.number().int().nonnegative().optional(),
+  title: z.string().optional(),
+  summary: z.string().optional(),
+});
+export type ZhihuCreatedContent = z.infer<typeof ZhihuCreatedContentSchema>;
+
+export const ZhihuCreatedContentsResponseSchema = z.object({
+  items: z.array(ZhihuCreatedContentSchema),
+  paging: ZhihuPagingSchema,
+});
+export type ZhihuCreatedContentsResponse = z.infer<typeof ZhihuCreatedContentsResponseSchema>;
 export const SOURCE_PROVIDER = {
   ZHIHU: "ZHIHU",
   GLOBAL: "GLOBAL",
@@ -64,6 +116,7 @@ export const SourceRefSchema = z.object({
   url: z.string().url(),
   authorName: z.string().optional(),
   excerpt: z.string(),
+  llmSummary: z.string().optional(),
   publishedAt: z.string().optional(),
   authorityLevel: z.string().optional(),
   voteUpCount: z.number().int().nonnegative().optional(),
@@ -393,6 +446,7 @@ export const InvestigationSchema = z.object({
   discussions: z.array(DiscussionInputSchema).default([]),
   discussionOrganizations: z.array(DiscussionOrganizationSchema).default([]),
   llmRuns: z.array(LLMRunSchema).default([]),
+  synthesizedReport: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -403,6 +457,17 @@ export const CreateInvestigationRequestSchema = z.object({
 });
 export type CreateInvestigationRequest = z.infer<typeof CreateInvestigationRequestSchema>;
 
+export const MissionInvitationSchema = z.object({
+  invitationId: z.string().min(1),
+  missionId: z.string().min(1),
+  recipientId: z.string().min(1),
+  recipientLabel: z.string().min(1),
+  matchReason: z.string().min(1),
+  status: z.enum(["READY", "SENT"]),
+  createdAt: z.string().datetime(),
+});
+export type MissionInvitation = z.infer<typeof MissionInvitationSchema>;
+export const MissionInvitationListSchema = z.array(MissionInvitationSchema);
 export const CreateMissionRequestSchema = z.object({
   gapId: z.string().min(1).optional(),
 });
@@ -567,6 +632,7 @@ export const KnowledgeObjectProjectionSchema = z.object({
   summary: CommunitySummarySchema,
   activeInvitation: EvidenceMissionSchema.optional(),
   impactReceipts: z.array(ImpactReceiptSchema),
+  synthesizedReport: z.string().optional(),
   updatedAt: z.string().datetime(),
 });
 export type KnowledgeObjectProjection = z.infer<typeof KnowledgeObjectProjectionSchema>;
@@ -589,6 +655,16 @@ export const ConfirmObservationRequestSchema = z.object({
   demoSample: z.boolean().default(false),
 });
 export type ConfirmObservationRequest = z.infer<typeof ConfirmObservationRequestSchema>;
+
+export const MissionDetailSchema = z.object({
+  mission: EvidenceMissionSchema,
+  evidence: z.array(EvidenceRecordSchema),
+  gap: EvidenceGapSchema.nullable(),
+  investigationId: z.string().min(1),
+  question: z.string().min(1),
+  knowledgeState: KnowledgeStateSchema,
+});
+export type MissionDetail = z.infer<typeof MissionDetailSchema>;
 export const EvidenceIntakeResponseSchema = z.object({
   record: EvidenceRecordSchema,
   receipt: ImpactReceiptSchema,

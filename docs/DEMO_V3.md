@@ -31,7 +31,7 @@ Knowledge Object 是已有 Investigation 的只读 projection，不是第二个 
 | rejected  | rejected / E0_OPINION    | EARLY_EVIDENCE 不变         |
 | unchanged | accepted / E1_FIRST_HAND | EARLY_EVIDENCE 不变         |
 
-现有内存 repository 保证浏览器刷新保留，API 重启清空。重演首次变化需重启隔离 API，没有新增 reset endpoint 或生产持久化。
+当前默认 SQLite repository 保证浏览器刷新和 API 重启后仍能读取相同数据；首次启动会从旧 `.data/investigations.json` 自动迁移到 `.data/investigations.sqlite`，并保留原 JSON。测试或兼容场景仍可显式使用内存 repository 或 JSON repository。
 
 ## 验证与边界
 

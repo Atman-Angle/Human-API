@@ -77,6 +77,7 @@ export function projectKnowledgeObject(investigation: Investigation): KnowledgeO
         )
       : undefined,
     impactReceipts: investigation.impactReceipts ?? [],
+    synthesizedReport: investigation.synthesizedReport,
     updatedAt: investigation.updatedAt,
   });
 }

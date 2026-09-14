@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-14
 **Owner:** A (Backend / Agent / Contracts)
-**Scope:** Backend-only vertical slice; frontend is explicitly out of scope.
+**Scope:** Chat/participation backend vertical slice. Zhihu OAuth identity and profile UI are separate integration capabilities and do not change this slice's domain authority.
 
 ## Goal
 
@@ -39,4 +39,4 @@ A backend test can execute the full route from chat through proposal confirmatio
 
 ## Non-goals
 
-No frontend changes, ordinary social posts, ranking/recommendations, auth, multi-agent, or queue infrastructure.
+This slice does not add ordinary social posts, ranking/recommendations, or queue infrastructure. Zhihu OAuth is an identity layer for authenticated participation; it does not create a second discussion authority, a Zhihu-native comment system, or a general social graph.

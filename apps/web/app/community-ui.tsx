@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Bot, Check, LoaderCircle, X } from "lucide-react";
+import { ArrowRight, Bot, Check, LoaderCircle, LogIn, LogOut, X } from "lucide-react";
 import type {
   KnowledgeObjectProjection,
   ConversationDraft,
@@ -11,8 +11,13 @@ import type {
   KnowledgeStateStatus,
   SearchProvenance,
 } from "@human-api/contracts";
-import { confirmObservation, prepareConversationDraft } from "@/lib/api-client";
-import samples from "../../../fixtures/golden-case/conversation-samples.json";
+import {
+  confirmObservation,
+  getZhihuAuthUrl,
+  getZhihuMe,
+  logoutZhihu,
+  prepareConversationDraft,
+} from "@/lib/api-client";
 
 export const knowledgeLabels: Record<KnowledgeStateStatus, string> = {
   UNRESOLVED: "还需要亲历者补充",
@@ -22,15 +27,89 @@ export const knowledgeLabels: Record<KnowledgeStateStatus, string> = {
 export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "请求没有完成，请重试。";
 }
+export function ZhihuAuthControl() {
+  const [user, setUser] = useState<Awaited<ReturnType<typeof getZhihuMe>>["user"] | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getZhihuMe()
+      .then((session) => setUser(session.user))
+      .catch(() => setUser(null));
+  }, []);
+
+  async function login() {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const result = await getZhihuAuthUrl(`${window.location.origin}/auth/zhihu/callback`);
+      window.location.assign(result.url);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "暂时无法打开知乎登录");
+      setAuthBusy(false);
+    }
+  }
+
+  async function logout() {
+    setAuthBusy(true);
+    await logoutZhihu().catch(() => undefined);
+    setUser(null);
+    setAuthBusy(false);
+  }
+
+  if (!user) {
+    return (
+      <div className="hg-auth-area">
+        <button
+          className="quiet-button hg-user-button"
+          type="button"
+          onClick={login}
+          disabled={authBusy}
+        >
+          <LogIn size={15} />
+          {authBusy ? "正在打开…" : "知乎登录"}
+        </button>
+        {authError ? <small className="hg-auth-error">{authError}</small> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="hg-auth-area">
+      <Link className="hg-avatar-link" href="/profile" aria-label="打开我的知乎用户界面">
+        {user.avatar ? (
+          <img className="hg-avatar" src={user.avatar} alt="" />
+        ) : (
+          <span className="hg-avatar hg-avatar-fallback">{user.fullname.slice(0, 1)}</span>
+        )}
+      </Link>
+      <Link className="hg-profile-name" href="/profile">
+        {user.fullname}
+      </Link>
+      <button
+        className="icon-button"
+        type="button"
+        onClick={logout}
+        disabled={authBusy}
+        aria-label="退出知乎登录"
+      >
+        <LogOut size={15} />
+      </button>
+      {authError ? <small className="hg-auth-error">{authError}</small> : null}
+    </div>
+  );
+}
+
 export function CommunityHeader() {
   return (
     <header className="site-header">
       <div className="header-inner">
         <Link className="brand" href="/">
           <span className="brand-mark">H</span>
-          <span className="brand-name">Human Gateway</span>
+          <span className="brand-name">群知——人与 AI 共生的知识社区</span>
         </Link>
         <span className="hg-header-note">从公开讨论，到共同理解</span>
+        <ZhihuAuthControl />
         <Link className="quiet-button" href="/">
           发现
         </Link>
@@ -73,13 +152,11 @@ export function Understanding({ summary }: { summary: KnowledgeObjectProjection[
     </div>
   );
 }
-export function Receipt({ receipt, demoSample }: { receipt: ImpactReceipt; demoSample?: boolean }) {
+export function Receipt({ receipt }: { receipt: ImpactReceipt }) {
   const changed = receipt.stateBefore !== receipt.stateAfter;
   return (
     <section className={`hg-receipt ${receipt.accepted ? "accepted" : "rejected"}`} role="status">
-      <span className="hg-eyebrow">
-        你的贡献回执 {demoSample ? "· GOLDEN_FIXTURE 合成示例，不是真人投稿" : "· 用户确认的经历"}
-      </span>
+      <span className="hg-eyebrow">你的贡献回执 · 用户确认的经历</span>
       <h2>
         {!receipt.accepted
           ? "已收到，但暂未纳入证据"
@@ -144,7 +221,6 @@ export function ConversationDrawer({
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sampleIndex, setSampleIndex] = useState<number | null>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -175,7 +251,7 @@ export function ConversationDrawer({
       const value = await prepareConversationDraft(mission.id, next);
       setDraft(value);
       setAnswers(next);
-      setInput(sampleIndex === null ? "" : (samples[sampleIndex]?.turns[next.length] ?? ""));
+      setInput("");
       if (!value.question) {
         setSummary(value.summary);
         setReview(true);
@@ -194,7 +270,7 @@ export function ConversationDrawer({
       const result = await confirmObservation(mission.id, {
         confirmed: true,
         summary,
-        demoSample: sampleIndex !== null,
+        demoSample: false,
       });
       onComplete(result);
     } catch (e) {
@@ -315,27 +391,6 @@ export function ConversationDrawer({
                   {busy ? "正在整理" : "发送"}
                 </button>
               </div>
-              {answers.length === 0 && (
-                <details className="hg-demo-samples">
-                  <summary>演示者工具：使用明确标记的合成示例</summary>
-                  <p>
-                    以下不是真人投稿。依次演示采纳、拒绝、采纳但不变；不要把示例当作真实调研结果。
-                  </p>
-                  {samples.map((sample, i) => (
-                    <button
-                      className="secondary-button"
-                      key={sample.label}
-                      type="button"
-                      onClick={() => {
-                        setSampleIndex(i);
-                        setInput(sample.turns[0]);
-                      }}
-                    >
-                      {i + 1}. {sample.label}
-                    </button>
-                  ))}
-                </details>
-              )}
             </>
           )}
           {review && (
@@ -374,9 +429,6 @@ export function ConversationDrawer({
                 </button>
               </div>
             </>
-          )}
-          {sampleIndex !== null && (
-            <p className="hg-sample-label">GOLDEN_FIXTURE · 当前为合成示例，不是真人经历。</p>
           )}
           {error && (
             <div role="alert" className="hg-error">

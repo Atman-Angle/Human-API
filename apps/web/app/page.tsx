@@ -42,12 +42,16 @@ import type {
 import {
   ApiClientError,
   createInvestigation,
+  chatRoute,
   listInvestigations,
   listMissions,
+  getHotList,
   prepareGoldenDemo,
 } from "@/lib/api-client";
+import { ZhihuAuthControl } from "./community-ui";
 import {
   listMockContributions,
+  generatePostsFromHotList,
   mockInvestigationToListItem,
   type ContributionType,
   type MockContribution,
@@ -185,7 +189,7 @@ export function AppHeader({
       <div className="header-inner">
         <button className="brand" type="button" onClick={onReset} aria-label="返回求证首页">
           <span className="brand-mark">H</span>
-          <span className="brand-name">知乎 · 求证 Agent</span>
+          <span className="brand-name">群知——人与 AI 共生的知识社区</span>
         </button>
         <nav className="header-nav" aria-label="主导航">
           <button
@@ -229,6 +233,7 @@ export function AppHeader({
             <span className="service-dot" />
             Agent 在线
           </span>
+          <ZhihuAuthControl />
         </div>
       </div>
     </header>
@@ -257,8 +262,27 @@ function FeedCard({ item, onOpen }: { item: MockFeedItem; onOpen: (id: string) =
           <i />
           <span>{formatRelativeTime(item.createdAt)}</span>
         </div>
+        <div className="feed-kicker">
+          <span className="kicker-line" />
+          求证动态 <span className="kicker-dot">·</span> 持续更新
+        </div>
         <h2>{item.question}</h2>
         <p className="feed-excerpt">{item.excerpt}</p>
+        {item.sourceUrl ? (
+          <div className="feed-source-badge">
+            <ExternalLink size={12} />
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {item.sourceTitle
+                ? item.sourceTitle.substring(0, 30)
+                : "\u77e5\u4e4e\u70ed\u699c\u6765\u6e90"}
+            </a>
+          </div>
+        ) : null}
         <div className="claim-preview-list">
           {item.claims.map((claim) => (
             <div className="claim-preview-item" key={claim.id}>
@@ -284,7 +308,7 @@ function FeedCard({ item, onOpen }: { item: MockFeedItem; onOpen: (id: string) =
         <div className="feed-stats">
           <span>
             <CheckCircle2 size={15} />
-            {item.evidenceCount} 条证据
+            {item.evidenceCount} 条记录
           </span>
           <span>
             <MessageCircle size={15} />
@@ -356,13 +380,132 @@ function FeedHome({
   onMine: () => void;
 }) {
   const [activeTopic, setActiveTopic] = useState("推荐");
+  const [hotItems, setHotItems] = useState<Array<{ title: string; url: string; summary: string }>>(
+    [],
+  );
+  const [hotListNotice, setHotListNotice] = useState<string | null>(null);
+  const [localItems, setLocalItems] = useState<MockFeedItem[]>([]);
+  const [generatingPosts, setGeneratingPosts] = useState(false);
+  const [generateNotice, setGenerateNotice] = useState<string | null>(null);
+  const mergedItems = [
+    ...localItems,
+    ...items.filter((i) => !localItems.find((li) => li.id === i.id)),
+  ];
   const visibleItems =
     activeTopic === "推荐" || activeTopic === "更多"
-      ? items
-      : items.filter((item) => item.topic === activeTopic);
+      ? mergedItems
+      : mergedItems.filter((item) => item.topic === activeTopic);
+  useEffect(() => {
+    getHotList(8)
+      .then((response) => setHotItems(response.items))
+      .catch((error) => setHotListNotice(getErrorMessage(error)));
+  }, []);
+  async function handleGenerateFromHotList() {
+    setGeneratingPosts(true);
+    setGenerateNotice(null);
+    try {
+      const response = await getHotList(10);
+      const newPosts = generatePostsFromHotList(response.items, 2);
+      if (newPosts.length > 0) {
+        setLocalItems((current) => [...newPosts, ...current]);
+        const topics = [...new Set(newPosts.map((p) => p.topic))].join("、");
+        setGenerateNotice(
+          "Agent 自动从知乎热榜抓取，已生成 " +
+            newPosts.length +
+            " 个帖子（归入「" +
+            topics +
+            "」圈子），无需冷启动！",
+        );
+      }
+    } catch {
+      setGenerateNotice(null);
+    } finally {
+      setGeneratingPosts(false);
+    }
+  }
   return (
     <main className="feed-page">
       <div className="feed-container">
+        <section className="agent-loop-card" aria-label="Agent 求证闭环">
+          <div className="agent-loop-copy">
+            <span className="agent-loop-kicker">
+              <Bot size={14} /> 一起把问题弄清楚
+            </span>
+            <h1>从“大家都在说”到“我知道为什么”</h1>
+            <p>先看看大家怎么说，再找还缺什么，邀请真正经历过的人补充，最后把新信息讲明白。</p>
+          </div>
+          <div className="agent-loop-steps">
+            {[
+              ["01", "先看大家怎么说", "整理已有讨论"],
+              ["02", "找出还缺什么", "明确需要的答案"],
+              ["03", "请经历过的人来答", "补充真实经历"],
+              ["04", "把结论说清楚", "说明哪些变了"],
+            ].map(([number, title, detail]) => (
+              <div className="agent-loop-step" key={number}>
+                <span>{number}</span>
+                <strong>{title}</strong>
+                <small>{detail}</small>
+              </div>
+            ))}
+          </div>
+          <button className="agent-loop-cta" type="button" onClick={onAsk}>
+            <Sparkles size={15} /> 用一个问题跑通 Demo
+          </button>
+        </section>
+        {hotItems.length > 0 ? (
+          <section className="hot-list-card" aria-label="知乎热榜">
+            <div className="hot-list-heading">
+              <div>
+                <span className="profile-kicker">LIVE FROM ZHIHU</span>
+                <h2>知乎热榜</h2>
+              </div>
+              <span className="profile-muted">仅作为选题入口，不等同于证据</span>
+            </div>
+            <div className="hot-list-grid">
+              {hotItems.map((item, index) => (
+                <a
+                  className="hot-list-item"
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  key={item.url}
+                >
+                  <span className="hot-list-rank">{String(index + 1).padStart(2, "0")}</span>
+                  <span>
+                    <strong>{item.title}</strong>
+                    {item.summary ? <small>{item.summary}</small> : null}
+                  </span>
+                  <ExternalLink size={14} />
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : hotListNotice ? (
+          <div className="feed-notice">
+            <Info size={16} /> 热榜暂时不可用：{hotListNotice}
+          </div>
+        ) : null}
+        <div className="feed-hotlist-actions">
+          <button
+            className="hotlist-generate-btn"
+            type="button"
+            onClick={handleGenerateFromHotList}
+            disabled={generatingPosts}
+          >
+            <Sparkles size={15} />
+            {generatingPosts ? "正在生成..." : "从知乎热榜生成帖子"}
+          </button>
+          {generateNotice ? (
+            <div className="feed-generate-notice" role="status">
+              <Sparkles size={15} />
+              <span>{generateNotice}</span>
+            </div>
+          ) : null}
+          <div className="feed-no-coldstart-badge">
+            <Sparkles size={13} />
+            无需冷启动 · Agent 已从知乎自动创建帖子 · 试试点击按钮从热榜生成更多
+          </div>
+        </div>
         <div className="feed-toolbar">
           <div className="topic-row" aria-label="话题分类">
             {topics.map((topic) => (
@@ -414,7 +557,24 @@ function FeedHome({
         ) : null}
         <div className="feed-list">
           {visibleItems.map((item) => (
-            <FeedCard item={item} onOpen={onOpen} key={item.id} />
+            <FeedCard
+              item={item}
+              onOpen={(id) => {
+                if (id.startsWith("hotgen-")) {
+                  const genItem = mergedItems.find((vi) => vi.id === id);
+                  if (genItem?.sourceUrl) {
+                    try {
+                      window.open(genItem.sourceUrl, "_blank", "noopener,noreferrer");
+                    } catch {}
+                    return;
+                  }
+                  // hotgen items cannot be opened in investigation page
+                  return;
+                }
+                onOpen(id);
+              }}
+              key={item.id}
+            />
           ))}
         </div>
         {visibleItems.length > 0 ? (
@@ -479,7 +639,9 @@ function AskView({
   }, [loading]);
 
   return (
-    <main className={`ask-page ${loading ? "is-processing" : ""}`}>
+    <main
+      className={`ask-page ${loading ? "is-processing" : ""} ${completedId ? "has-result" : ""}`}
+    >
       <section className="ask-stage">
         {onClose ? (
           <button className="ask-close" type="button" onClick={onClose} aria-label="关闭提问面板">
@@ -607,13 +769,13 @@ function VerificationHome({
   }>;
   onClose: () => void;
 }) {
-  const [activeMission, setActiveMission] = useState<EvidenceMission | null>(null);
+  const router = useRouter();
   const cards = missions.length
     ? missions.map((mission) => ({
         mission,
         question: mission.title,
-        gap: "缺少能直接验证当前 Claim 的第一手观察",
-        who: "最近 30 天内亲身经历过该场景的当事人",
+        gap: "缺少真实经历者的第一手观察",
+        who: "最近亲身经历过的人",
       }))
     : [
         {
@@ -626,7 +788,7 @@ function VerificationHome({
           },
           question: "AI Coding 实际改变了初级开发者哪些工作？",
           gap: "缺少真实开发者在 AI Coding 下的工作变化观察",
-          who: "最近 30 天内亲身经历过该场景的开发者",
+          who: "最近亲身经历过的人",
         },
       ];
   return (
@@ -634,9 +796,8 @@ function VerificationHome({
       <div className="verification-container">
         <header className="verification-head">
           <div>
-            <span className="verification-kicker">HUMAN GATEWAY · MISSIONS</span>
-            <h1>正在等待真人补充的求证</h1>
-            <p>这里只展示求证问题和参与任务，不展示普通帖子。</p>
+            <h1>帮一个问题找到答案</h1>
+            <p>选择你亲身经历过的问题，分享一段真实经历。</p>
           </div>
           <button className="console-close" type="button" onClick={onClose}>
             ×
@@ -646,98 +807,32 @@ function VerificationHome({
           {cards.map(({ mission, question, gap, who }) => (
             <article className="verification-card" key={mission.id}>
               <div className="verification-card-top">
-                <span className="mission-status">
-                  ● {mission.status === "OPEN" ? "OPEN · 可参与" : "CLOSED · 已结束"}
-                </span>
-                <span>求证任务</span>
+                {mission.status === "OPEN" ? (
+                  <span className="mission-badge-open">可参与</span>
+                ) : (
+                  <span className="mission-badge-closed">已结束</span>
+                )}
               </div>
               <h2>{question}</h2>
-              <section className="gap-box">
-                <strong>现在还缺什么？</strong>
-                <p>{gap}</p>
-              </section>
-              <div className="verification-row">
-                <span>需要谁来回答</span>
-                <b>{who}</b>
-              </div>
-              <div className="verification-row">
-                <span>这条观察会帮助</span>
-                <p>验证当前问题中的具体 Claim，而不是增加泛泛观点。</p>
+              <p className="verification-card-gap">{gap}</p>
+              <div className="verification-card-who">
+                适合：<strong>{who}</strong>
               </div>
               <button
                 className="verification-action"
                 type="button"
                 disabled={mission.status !== "OPEN"}
-                onClick={() =>
-                  setActiveMission({
-                    id: mission.id,
-                    investigationId: mission.investigationId,
-                    evidenceGapId: "mock-gap",
-                    title: question,
-                    description: `${gap} 请记录一次具体、可回忆的真实经历。`,
-                    qualification: [who],
-                    questions: [
-                      {
-                        id: "participantType",
-                        kind: "SINGLE_SELECT",
-                        prompt: "你的身份是什么？",
-                        options: [who],
-                        required: true,
-                      },
-                      {
-                        id: "timeframe",
-                        kind: "SINGLE_SELECT",
-                        prompt: "发生时间？",
-                        options: ["最近 7 天", "最近 30 天", "更早"],
-                        required: true,
-                      },
-                      {
-                        id: "task",
-                        kind: "SHORT_TEXT",
-                        prompt: "具体发生在什么任务或场景？",
-                        required: true,
-                      },
-                      {
-                        id: "aiRole",
-                        kind: "SHORT_TEXT",
-                        prompt: "当时发生了什么变化？",
-                        required: true,
-                      },
-                      {
-                        id: "humanJudgment",
-                        kind: "SHORT_TEXT",
-                        prompt: "你最后如何判断或处理？",
-                        required: true,
-                      },
-                    ],
-                    status: "OPEN",
-                    estimatedSeconds: 50,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  })
-                }
+                onClick={() => router.push(`/mission/${encodeURIComponent(mission.id)}`)}
               >
-                参与这次求证 <ArrowRight size={16} />
+                分享我的经历 <ArrowRight size={16} />
               </button>
             </article>
           ))}
         </div>
       </div>
-      {activeMission ? (
-        <MissionDrawer
-          mission={activeMission}
-          onClose={() => setActiveMission(null)}
-          onSubmit={async () => {
-            setActiveMission(null);
-          }}
-          submitting={false}
-          error={null}
-        />
-      ) : null}
     </main>
   );
 }
-
 function SearchAgentComplete({
   question,
   onOpen,
@@ -766,23 +861,18 @@ function SearchAgentComplete({
   return (
     <section className="agent-complete" aria-live="polite">
       <div className="complete-mark">✓</div>
-      <span className="workspace-kicker">WORKSPACE READY</span>
-      <h2>问题现场已经准备好了</h2>
-      <p>Agent 已完成匹配、检索和观点整理，接下来由你决定是否进入这个问题。</p>
+      <span className="workspace-kicker">已准备好</span>
+      <h2>这个问题已经可以开始求证</h2>
       <div className="complete-card">
         <strong>{question}</strong>
-        <div className="complete-stats">
-          <span>18 条相关内容</span>
-          <span>3 个主要观点</span>
-          <span>1 个待求证缺口</span>
-        </div>
+        <p className="complete-note">已有公开讨论，进入帖子查看结论与待补充的真实经验。</p>
         <div className="complete-actions">
           <button className="submit-question complete-primary" type="button" onClick={onOpen}>
-            查看帖子与求证
+            进入求证
           </button>
           {onNew ? (
             <button className="complete-secondary" type="button" onClick={onNew}>
-              继续搜索
+              换个问题
             </button>
           ) : null}
         </div>
@@ -1619,7 +1709,7 @@ export function MyInvestigationsConsole({
                   <div>
                     <h3>{item.question}</h3>
                     <p>
-                      {knowledgeLabels[item.knowledgeState]} · {item.evidenceCount} 条证据 ·{" "}
+                      {knowledgeLabels[item.knowledgeState]} · {item.evidenceCount} 条记录 ·{" "}
                       {item.missionCount} 个 Mission
                     </p>
                   </div>
@@ -1735,7 +1825,7 @@ export function InvestigationView({
       <div className="workspace-container">
         <section className="investigation-hero">
           <div className="investigation-meta">
-            <span>INVESTIGATION</span>
+            <span>求证任务</span>
             <i />
             <span>{new Date(investigation.createdAt).toLocaleDateString("zh-CN")}</span>
           </div>
@@ -1911,7 +2001,7 @@ export function InvestigationView({
                   </span>
                   <div>
                     <h2>Agent 重评说明</h2>
-                    <p>为什么 Knowledge State 发生或没有发生变化</p>
+                    <p>为什么结论发生了变化</p>
                   </div>
                 </div>
                 <p className="reevaluation-copy">{investigation.reevaluation.whyStateChanged}</p>
@@ -2116,6 +2206,14 @@ export default function HomePage() {
     setAskSession((current) => current + 1);
     setPageError(null);
     try {
+      // First check if a similar investigation already exists
+      const route = await chatRoute(trimmedQuestion);
+      if (route.kind === "MATCHED_INVESTIGATION") {
+        setCreatingInvestigation(false);
+        router.push(`/investigation/${encodeURIComponent(route.investigationId)}`);
+        return;
+      }
+      // Not matched - create a new investigation
       const created = await createInvestigation(trimmedQuestion);
       setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
       setCompletedInvestigationId(created.id);
@@ -2143,7 +2241,19 @@ export default function HomePage() {
           loading={loadingInvestigations}
           error={pageError}
           notice={feedNotice}
-          onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
+          onOpen={(id) => {
+            if (id.startsWith("hotgen-")) {
+              const item = investigations.find((i) => i.id === id);
+              if (item?.sourceUrl) {
+                try {
+                  window.open(item.sourceUrl, "_blank", "noopener,noreferrer");
+                } catch {}
+                return;
+              }
+              return;
+            }
+            router.push(`/investigation/${encodeURIComponent(id)}`);
+          }}
           onAsk={() => setPanel("search")}
           onMine={() => setPanel("mine")}
         />
@@ -2176,6 +2286,7 @@ export default function HomePage() {
         <MyInvestigationsConsole
           items={investigations}
           onOpen={(id) => {
+            if (id.startsWith("hotgen-")) return;
             setPanel("home");
             router.push(`/investigation/${encodeURIComponent(id)}`);
           }}

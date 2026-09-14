@@ -557,6 +557,53 @@ The current implementation is a backend demo slice. Proposals and domain aggrega
 
 See docs/COMMUNITY_CHAT_SPEC.md for Chat Gateway, Proposal, Participation, Activity, and MaintenanceRun contracts.
 
+## Zhihu OAuth 与用户中心（CURRENT）
+
+知乎 OAuth 只用于识别当前登录用户，以及在用户明确授权后读取其知乎用户资料；它不把 Human Gateway 变成知乎评论客户端，也不改变 Investigation、Discussion、Evidence 或 Knowledge State 的既有 Authority。
+
+### `GET /api/auth/zhihu/url`
+
+- 返回 `{ url, state }`，前端将浏览器导航到 `url` 完成知乎授权。
+- `redirectUri` 默认由服务端 `ZHIHU_REDIRECT_URI` 配置；本地前端可传入当前已在知乎应用登记的回调地址，生产部署必须与知乎后台登记值一致。
+- 知乎 App ID、App Key 和 Access Secret 仅由 API 服务端读取；不得下发到浏览器。
+
+### `POST /api/auth/zhihu/callback`
+
+请求体接受知乎回调中的 `code` 或 `authorization_code`，以及可选 `state`。服务端用 App Key 换取用户 OAuth access token，读取用户资料并创建 HttpOnly `hg_session` Cookie。
+
+- access token 保存在服务端 Session Store，不在响应体或前端状态中返回。
+- Cookie 默认 `SameSite=Lax`、HttpOnly、7 天有效期；当前演示实现使用内存 Session，API 进程重启后会失效。
+- 知乎回调可能不返回 `state`；有 state 时服务端按一次性 state 校验，没有 state 时仅使用最近创建且未过期的 pending state 作为受控兼容回退；显式传入无效 state 不会回退。
+
+### `GET /api/auth/zhihu/me`
+
+- 已登录：返回 `AuthSession`，包含 `user`，不包含 access token。
+- 未登录：返回 `401 AUTH_REQUIRED`。
+
+### `POST /api/auth/zhihu/logout`
+
+删除当前 `hg_session` Cookie 对应的服务端 Session，并清除浏览器 Cookie。接口可重复调用。
+
+### `GET /api/auth/zhihu/followees?offset=0&limit=20`
+
+返回当前 OAuth 用户关注的人：`ZhihuFolloweesResponse`。
+
+### `GET /api/auth/zhihu/contents?offset=0&limit=20`
+
+返回当前 OAuth 用户创作内容：`ZhihuCreatedContentsResponse`。
+
+以上两个分页接口：
+
+- 需要有效的 `hg_session` 和知乎 OAuth access token，否则返回 `401 AUTH_REQUIRED`。
+- `offset` 默认 `0`，`limit` 默认 `20`，服务端限制最大页大小为 `50`。
+- 响应中的 `paging.nextOffset` 为下一次加载更多使用的 offset；没有下一页时为 `null`。
+- DTO、分页结构和枚举全部来自 `packages/contracts`，前端不得另行定义同名 DTO。
+- 知乎上游错误保持为 `UPSTREAM_TIMEOUT`、`UPSTREAM_RATE_LIMIT`、`UPSTREAM_INVALID_RESPONSE`、`UPSTREAM_UNAVAILABLE` 或 `AUTH_REQUIRED`，不伪装成空数据。
+
+### 社区讨论的身份语义
+
+未登录用户可以浏览 Investigation 下已有讨论；登录用户可以提交自己的讨论/使用经历。发布时服务端从 `hg_session` 取得作者 UID 和姓名，不信任客户端传入的作者字段。讨论仍是社区输入，不会自动成为 Evidence，也不会写回知乎评论区；只有既有 Evidence Intake、Grading 和 Re-evaluation 流程可以改变 Knowledge State。
+
 ## Discovery Hot List（CURRENT）
 
 应用接口：`GET /api/discovery/hot-list?limit=10`。后端通过知乎官方热榜 Adapter 获取候选热点，`limit` 会限制在 1–30。响应包含 `items`、`total`、`provenance`、`retrievedAt` 和 `limitations`；知乎热度仅用于 Agent 的候选上下文，不等同于 Evidence，也不直接推进 Knowledge State。知乎 Access Secret 仅由后端持有，前端不得直连知乎官方接口。

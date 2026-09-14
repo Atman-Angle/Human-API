@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Bot, ExternalLink, LoaderCircle } from "lucide-react";
+import { ArrowRight, Bot, ExternalLink, LoaderCircle, Send, UserRound } from "lucide-react";
 import type {
   EvidenceIntakeResponse,
   ImpactReceipt,
   KnowledgeObjectProjection,
 } from "@human-api/contracts";
-import { getKnowledgeObject } from "@/lib/api-client";
+import { getKnowledgeObject, organizeDiscussion } from "@/lib/api-client";
 import {
   CommunityHeader,
   ConversationDrawer,
@@ -25,6 +25,9 @@ export default function InvestigationClient({ investigationId }: { investigation
   const [receipt, setReceipt] = useState<ImpactReceipt | null>(null);
   const [receiptDemo, setReceiptDemo] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [reply, setReply] = useState("");
+  const [replying, setReplying] = useState(false);
+  const [agentReply, setAgentReply] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     getKnowledgeObject(investigationId)
@@ -98,11 +101,36 @@ export default function InvestigationClient({ investigationId }: { investigation
               </div>
             </header>
             {receipt && <Receipt receipt={receipt} demoSample={receiptDemo} />}
-            <section className="hg-discussions">
-              <div className="hg-section-heading">
-                <h2>先听听人们怎么说</h2>
-                <span>{view.sources.length} 条公开来源 · 以下是原始内容摘录，不代表平台认同</span>
+            <article className="hg-knowledge-article">
+              <div className="hg-article-kicker"><Bot size={15} /> Agent 汇编 · {new Date(view.updatedAt).toLocaleString("zh-CN")} 更新</div>
+              <h2>{view.question.replace(/\s*治理验收\s*\d+$/, "")}</h2>
+              <div className="hg-article-meta"><span>Human Gateway 编辑部</span><span>持续更新</span></div>
+              <div className="hg-article-body">
+                {view.summary.consensus.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                {view.summary.disagreements.length > 0 && <><h3>分歧仍然存在</h3>{view.summary.disagreements.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</>}
+                {view.summary.unknowns.length > 0 && <><h3>接下来还需要知道什么</h3>{view.summary.unknowns.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</>}
+                {view.summary.limitations.length > 0 && <p className="hg-article-note">本文仍有边界：{view.summary.limitations.join("；")}</p>}
               </div>
+              <details className="hg-article-sources"><summary>查看引用与原始讨论（{view.sources.length}）</summary><p>Agent 会在新的讨论和 Evidence 进入后继续修订这篇文章。</p></details>
+            </article>
+            <section className="hg-discussions hg-community-thread">
+              <div className="hg-section-heading"><h2>社区讨论 · 人与人，人与 Agent</h2><span>每条发言都会被 Agent 组织为 Claim、分歧或 Evidence Gap</span></div>
+              <div className="hg-thread-message agent-message"><span className="hg-avatar"><Bot size={16} /></span><div><strong>Human Gateway Agent</strong><p>我会保留不同意见，不把一条回复直接当成事实。请分享你的亲身经历、反例或疑问。</p></div></div>
+              <form className="hg-reply-form" onSubmit={async (event) => {
+                event.preventDefault(); const content = reply.trim(); if (!content || replying) return;
+                setReplying(true); setAgentReply(null);
+                try { const result = await organizeDiscussion({ id: `discussion-${Date.now()}`, investigationId, content, authorLabel: "社区参与者", createdAt: new Date().toISOString(), source: "COMMUNITY" }); setAgentReply(result.summary ?? "Agent 已收到这条讨论，并将它标记为待进一步求证。"); setReply(""); setAttempt((v) => v + 1); } catch (e) { setAgentReply(errorMessage(e)); } finally { setReplying(false); }
+              }}>
+                <UserRound size={17} /><textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="写下你的经历、质疑或反例……" rows={3} />
+                <button className="primary-button" disabled={!reply.trim() || replying} type="submit">{replying ? <LoaderCircle className="spin" size={16} /> : <Send size={16} />} {replying ? "Agent 正在组织" : "发布并让 Agent 组织"}</button>
+              </form>
+              {agentReply && <div className="hg-thread-message agent-message"><span className="hg-avatar"><Bot size={16} /></span><div><strong>Agent 组织结果</strong><p>{agentReply}</p></div></div>}
+            </section>
+            <details className="hg-discussions hg-source-archive">
+              <summary className="hg-section-heading">
+                <h2>引用与原始讨论</h2>
+                <span>{view.sources.length} 条公开来源 · 以下是原始内容摘录，不代表平台认同</span>
+              </summary>
               {view.sources.slice(0, 3).map((source) => (
                 <article className="hg-source" key={`${source.provider}:${source.contentId}`}>
                   <div className="hg-author">
@@ -146,7 +174,7 @@ export default function InvestigationClient({ investigationId }: { investigation
               {!view.sources.length && !view.discussions.length && (
                 <p>当前尚未获得可展示的公开讨论，不编造社区声音。</p>
               )}
-            </section>
+            </details>
             <section className="hg-agent-organization">
               <div className="hg-section-heading">
                 <h2>
@@ -265,7 +293,7 @@ export default function InvestigationClient({ investigationId }: { investigation
                 ))}
               </section>
             )}
-            <details className="hg-technical">
+            <details className="hg-technical hg-user-hidden">
               <summary>技术与审计详情：Claims、Evidence、来源与评估</summary>
               <pre>{JSON.stringify(view, null, 2)}</pre>
             </details>

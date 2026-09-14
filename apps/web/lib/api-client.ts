@@ -1,6 +1,8 @@
 import {
   ApiErrorSchema,
   DiscoveryTopicsResponseSchema,
+  HotListResponseSchema,
+  type HotListResponse,
   KnowledgeObjectProjectionSchema,
   ConversationDraftSchema,
   EvidenceIntakeResponseSchema,
@@ -299,3 +301,6 @@ export const confirmObservation = (id: string, input: ConfirmObservationRequest)
     EvidenceIntakeResponseSchema,
     input,
   );
+
+export const getHotList = (limit = 10): Promise<HotListResponse> =>
+  requestCommunity(`/api/discovery/hot-list?limit=${limit}`, HotListResponseSchema);

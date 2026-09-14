@@ -529,7 +529,7 @@ DiscussionOrganization additionally accepts optional routing (knowledgeObjectId,
 
 ## A06 Immutable submission receipts
 
-`Investigation.impactReceipts?: ImpactReceipt[]` stores submission-time snapshots. Optional only for compatibility with old fixtures. New submissions persist the exact returned receipt within the existing aggregate. `GET /api/evidence/:id/impact` reads that snapshot and never reconstructs stateBefore/stateAfter from current state. Legacy Evidence without a stored receipt returns 404 rather than fabricating history. Storage remains in-memory and is lost on server restart.
+`Investigation.impactReceipts?: ImpactReceipt[]` stores submission-time snapshots. Optional only for compatibility with old fixtures. New submissions persist the exact returned receipt within the existing aggregate. `GET /api/evidence/:id/impact` reads that snapshot and never reconstructs stateBefore/stateAfter from current state. Legacy Evidence without a stored receipt returns 404 rather than fabricating history. The default runtime persists the aggregate through `JsonInvestigationRepository` at `.data/investigations.json`; a repository restart reloads Investigation, Mission, Evidence, and stored receipt snapshots. Tests may still use the in-memory repository explicitly.
 
 ## Product Direction v3 — conversational Golden Demo (2026-09-14)
 
@@ -556,3 +556,7 @@ The current implementation is a backend demo slice. Proposals and domain aggrega
 ## Community Chat Vertical Slice
 
 See docs/COMMUNITY_CHAT_SPEC.md for Chat Gateway, Proposal, Participation, Activity, and MaintenanceRun contracts.
+
+## Discovery Hot List（CURRENT）
+
+应用接口：`GET /api/discovery/hot-list?limit=10`。后端通过知乎官方热榜 Adapter 获取候选热点，`limit` 会限制在 1–30。响应包含 `items`、`total`、`provenance`、`retrievedAt` 和 `limitations`；知乎热度仅用于 Agent 的候选上下文，不等同于 Evidence，也不直接推进 Knowledge State。知乎 Access Secret 仅由后端持有，前端不得直连知乎官方接口。

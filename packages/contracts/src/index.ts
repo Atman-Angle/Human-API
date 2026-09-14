@@ -71,6 +71,22 @@ export const SourceRefSchema = z.object({
 });
 export type SourceRef = z.infer<typeof SourceRefSchema>;
 
+export const HotListItemSchema = z.object({
+  title: z.string().min(1),
+  url: z.string().url(),
+  thumbnailUrl: z.string(),
+  summary: z.string(),
+});
+export type HotListItem = z.infer<typeof HotListItemSchema>;
+export const HotListResponseSchema = z.object({
+  items: z.array(HotListItemSchema),
+  total: z.number().int().nonnegative(),
+  provenance: SearchProvenanceSchema,
+  retrievedAt: z.string().datetime(),
+  limitations: z.array(z.string()),
+});
+export type HotListResponse = z.infer<typeof HotListResponseSchema>;
+
 export const SearchResponseSchema = z.object({
   query: z.string().min(1),
   provider: SourceProviderSchema,

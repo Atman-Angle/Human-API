@@ -329,6 +329,38 @@ describe("Evidence Intake", () => {
 });
 
 describe("Impact Receipt", () => {
+  it("treats identical Evidence submissions as idempotent", async () => {
+    const { baseUrl } = await startServer(AI_QUESTION, ["学生和实习生用 AI 生成代码测试。"]);
+    const created = await createInvestigation(baseUrl, AI_QUESTION);
+    const withMission = await createMission(baseUrl, created.id);
+    const mission = withMission.missions[0];
+    if (!mission) throw new Error("No mission");
+    const init = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        statement: "我在实习中亲自使用 AI 生成测试，并逐条检查边界条件。",
+        participantType: "实习生",
+        experience: "实习项目中的真实经历",
+        task: "接口测试",
+        aiRole: "AI 生成测试代码",
+        humanJudgment: "我检查异常和边界",
+      }),
+    };
+    const first = await request<{ record: { id: string }; receipt: { evidenceId: string } }>(
+      `${baseUrl}/api/missions/${mission.id}/evidence`,
+      init,
+    );
+    const second = await request<typeof first.body>(
+      `${baseUrl}/api/missions/${mission.id}/evidence`,
+      init,
+    );
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(second.body.record.id).toBe(first.body.record.id);
+    expect(second.body.receipt.evidenceId).toBe(first.body.receipt.evidenceId);
+  });
+
   it("generates E0 receipt with accepted=false", async () => {
     const { baseUrl } = await startServer(AI_QUESTION, ["学生和实习生用 AI 生成代码测试。"]);
     const created = await createInvestigation(baseUrl, AI_QUESTION);
@@ -445,6 +477,36 @@ describe("Community Read API", () => {
     expect(detail.body.question).toBe(AI_QUESTION);
     expect(detail.body.knowledgeState).toBeDefined();
     expect(detail.body.evidenceState).toBeDefined();
+  });
+
+  it("round-trips an accepted receipt through the HTTP read API", async () => {
+    const { baseUrl } = await startServer(AI_QUESTION, ["学生和实习生用 AI 生成代码测试。"]);
+    const created = await createInvestigation(baseUrl, AI_QUESTION);
+    const withMission = await createMission(baseUrl, created.id);
+    const mission = withMission.missions[0];
+    if (!mission) throw new Error("No mission");
+    const submitted = await request<{
+      receipt: { evidenceId: string; stateBefore: string; stateAfter: string };
+    }>(`${baseUrl}/api/missions/${mission.id}/evidence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        statement: "我在实习中亲自使用 AI 生成测试，并逐条检查边界条件。",
+        participantType: "实习生",
+        experience: "实习项目中的真实经历",
+        task: "接口测试",
+        aiRole: "AI 生成测试代码",
+        humanJudgment: "我检查异常和边界",
+      }),
+    });
+    expect(submitted.status).toBe(201);
+    const read = await request<typeof submitted.body.receipt>(
+      `${baseUrl}/api/evidence/${submitted.body.receipt.evidenceId}/impact`,
+    );
+    expect(read.status).toBe(200);
+    expect(read.body.evidenceId).toBe(submitted.body.receipt.evidenceId);
+    expect(read.body.stateBefore).toBe(submitted.body.receipt.stateBefore);
+    expect(read.body.stateAfter).toBe(submitted.body.receipt.stateAfter);
   });
 
   it("returns 404 for non-existent investigation", async () => {

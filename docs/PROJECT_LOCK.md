@@ -12,7 +12,23 @@ Agent 的职责不是生成更多普通答案，而是持续维护问题的 Know
 
 ---
 
-## 产品核心形态`r`n`r`n``text`r`nAI Coding Circle`r`n→ Knowledge Object`r`n→ Human Discussion`r`n→ Agent Knowledge Organization`r`n→ Knowledge State / Claims / Conflicts / Open Questions`r`n→ Mission`r`n→ Observation / Evidence`r`n→ Re-evaluation`r`n→ Knowledge Object Update`r`n`` `r`n`r`n人类可以自由提问、回答、讨论、质疑和分享经验；Agent 负责将讨论组织为可追踪的 Claims、Evidence、争议、限制条件和未解决问题。讨论是知识演化的原始输入，Mission 是 Agent 针对明确 Evidence Gap 发起的结构化参与请求。`r`n`r`n## 用户核心行为
+## 产品核心形态
+
+```text
+AI Coding Circle
+→ Knowledge Object
+→ Human Discussion
+→ Agent Knowledge Organization
+→ Knowledge State / Claims / Conflicts / Open Questions
+→ Mission
+→ Observation / Evidence
+→ Re-evaluation
+→ Knowledge Object Update
+```
+
+人类可以自由提问、回答、讨论、质疑和分享经验；Agent 负责将讨论组织为可追踪的 Claims、Evidence、争议、限制条件和未解决问题。讨论是知识演化的原始输入，Mission 是 Agent 针对明确 Evidence Gap 发起的结构化参与请求。
+
+## 用户核心行为
 
 用户可以自由讨论，也可以对明确 Evidence Gap 提供真实 Observation。普通讨论不会自动成为事实；Agent 必须保留原始表达，并区分 Opinion、Claim Candidate、Observation、Evidence、Counterexample 与 Limitation。
 
@@ -20,7 +36,10 @@ Observation 可以来自本人近期经历、工作流程、可核对事件或�
 
 ---
 
-## Golden Loop`r`n`r`n```text`r`n进入一个 Knowledge Object
+## Golden Loop
+
+```text
+进入一个 Knowledge Object
 
 ↓
 看到目前已知什么
@@ -38,7 +57,6 @@ Agent Re-evaluate
 收到 Impact Receipt
 ↓
 进入 Next Frontier
-
 ```
 
 ---
@@ -160,7 +178,7 @@ P2 不代表近期承诺。
 6. 新用户可以在 Investigation 中理解“已知什么、还缺什么、自己能做什么”。
 7. Golden Demo 稳定，且不会被目标社区能力破坏。
 
-```
+````
 
 ## 36 小时后端目标：真实 LLM 驱动的 Knowledge Object
 
@@ -181,8 +199,12 @@ P2 不代表近期承诺。
 → Knowledge State Update
 → Impact Receipt
 → 返回可追溯的 Knowledge Object projection
-```
+````
 
 真实 LLM 的输出必须经过 Contract Schema 校验，并保留：模型、运行时间、输入来源、原始讨论引用、结构化判断、置信度、限制条件和错误状态。LLM 是知识组织与评估的执行者，不是不可追溯的事实权威。
 
 36 小时内只实现一个 AI Coding Circle 和一个 Golden Knowledge Object，但接口设计不得把真实 LLM 逻辑写死为单个页面或固定字符串。应通过 Agent orchestration 接入 LLM adapter，并允许无密钥、超时、限流、无效响应时回退到 CACHE 或 GOLDEN_FIXTURE。
+
+```
+
+```

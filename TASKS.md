@@ -653,3 +653,39 @@ Must not modify: `apps/web/**`
 
 Scope: implement `docs/COMMUNITY_CHAT_SPEC.md` without replacing existing Evidence, Mission, Knowledge State, Re-evaluation, or Impact Receipt authorities.
 Current evidence: Chat route, proposal create/confirm, participation routing, activity projection, shared schemas, and `npm run verify` passing. Remaining: real proposal lifecycle contract tests, full discussion/maintenance orchestration, durable repository, and end-to-end acceptance.
+
+## C07 - Zhihu API Capability Matrix
+
+Owner: C
+
+Status: DONE — documentation delivered; npm run verify passed (76 tests, including 5 Golden Flow tests; API/web builds passed). Live API and manual browser demo not tested.
+
+Allowed Paths: `docs/ZHIHU_API_CAPABILITY_MATRIX.md`, `TASKS.md`
+
+Must Not Modify: `apps/**`, `packages/**`, `fixtures/**`, shared Contract and existing task ownership.
+
+Scope: user-requested documentation-only inventory of official Zhihu capabilities, repository reuse opportunities, limitations, and proposed priorities. Backend integration requires a separately owned A task.
+
+Acceptance Criteria:
+
+- Record source version, coverage limits, endpoint/auth/quota details, repository evidence, and unknowns.
+- Distinguish documented capability, implemented adapter, and verified live behavior.
+- No new runtime implementation or parallel Authority; run `npm run verify` and report Golden Demo verification limits.
+
+## C08 - Zhihu-first Backend and Frontend Integration Plan
+
+Owner: C
+
+Status: IN_PROGRESS — backend adapter and minimal frontend wiring underway; LIVE verification not claimed.
+
+Allowed Paths: `docs/ZHIHU_BACKEND_OPTIMIZATION_PLAN.md`, `TASKS.md`
+
+Must Not Modify: `apps/**`, `packages/**`, `.env`, existing task ownership.
+
+Scope: define replacement gates, useful demo additions, Contract-first backend/frontend sequencing, and reproducible end-to-end acceptance. Proposed implementation work remains subject to A/B ownership and the existing A11–A17 scope.
+
+Acceptance Criteria:
+
+- Concrete code locations, acceptance gates, rollback and external dependency uncertainties.
+- Distinguish Aliyun removal target from verified Zhihu compatibility.
+- Record verification honestly; no frontend mock success counted as end-to-end evidence.

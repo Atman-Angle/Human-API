@@ -19,6 +19,7 @@ export interface RuntimeOptions {
   accessSecret?: string | undefined;
   cacheDirectory?: string;
   fixturePath?: string;
+  dataPath?: string;
   timeoutMs?: number;
 }
 
@@ -33,6 +34,10 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   const fixturePath =
     options.fixturePath ?? resolve(process.cwd(), "fixtures/golden-case/search-fixture.json");
   const timeoutMs = options.timeoutMs ?? 8_000;
+  const dataPath =
+    options.dataPath ??
+    process.env.INVESTIGATION_DATA_PATH ??
+    resolve(process.cwd(), ".data/investigations.json");
 
   const zhihu = new OfficialSearchAdapter({
     provider: SOURCE_PROVIDER.ZHIHU,
@@ -55,9 +60,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   });
 
   const dependencies: AppDependencies = {
-    repository: new JsonInvestigationRepository(
-      resolve(process.cwd(), ".data/investigations.json"),
-    ),
+    repository: new JsonInvestigationRepository(dataPath),
     searchService,
     discussionOrganizer: new FallbackDiscussionOrganizer(
       new OpenAICompatibleDiscussionOrganizer({

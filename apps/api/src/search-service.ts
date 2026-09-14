@@ -39,6 +39,14 @@ export class SearchService {
 
     const request = this.searchWithFallback(provider, query, count);
     this.inFlight.set(key, request);
+    void request.then(
+      () => {
+        if (this.inFlight.get(key) === request) this.inFlight.delete(key);
+      },
+      () => {
+        if (this.inFlight.get(key) === request) this.inFlight.delete(key);
+      },
+    );
     return request;
   }
 

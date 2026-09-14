@@ -71,8 +71,27 @@ export function submitMissionEvidence({
     );
   }
 
-  // 4. Grade evidence
+  // 4. Grade evidence and make identical submissions idempotent.
   const graded = gradeEvidenceSubmission({ submission, mission, gap });
+  const submissionKey = JSON.stringify({ missionId: mission.id, submission });
+  const duplicate = investigation.evidence.find(
+    (existing) =>
+      JSON.stringify({ missionId: existing.missionId, submission: existing.submission }) ===
+      submissionKey,
+  );
+  if (duplicate) {
+    const existingReceipt = investigation.impactReceipts?.find(
+      (receipt) => receipt.evidenceId === duplicate.id,
+    );
+    if (!existingReceipt) {
+      throw new HttpError(
+        500,
+        "INTERNAL_ERROR",
+        `Evidence ${duplicate.id} exists without its Impact Receipt.`,
+      );
+    }
+    return { record: duplicate, receipt: existingReceipt, investigation };
+  }
   const now = clock().toISOString();
   const stateBefore: KnowledgeStateStatus = investigation.knowledgeState.status;
 
@@ -128,7 +147,9 @@ export function submitMissionEvidence({
     impactSummary =
       "Observation accepted and included in Re-evaluation. Evidence from Mission " +
       mission.title +
-      " advanced the Knowledge State of Claim " +
+      (stateBefore === stateAfter
+        ? " supplemented evidence without changing the overall state for Claim "
+        : " changed the Knowledge State for Claim ") +
       affectedClaim.claim +
       ".";
   }
@@ -143,9 +164,24 @@ export function submitMissionEvidence({
     stateBefore,
     stateAfter,
     impactSummary,
-    stillMissing: investigation.knowledgeState.limitations,
+    contribution: {
+      ...(accepted ? { observation: submission.statement } : {}),
+      explanation: !accepted
+        ? !graded.matchesGap
+          ? "这段内容没有匹配本次邀请的知识缺口，未纳入该缺口的证据。"
+          : "这段内容暂未满足第一手经历的评估条件，未作为证据推进判断。可以补充具体任务、AI 的作用和你自己的检查过程。"
+        : stateBefore === stateAfter
+          ? "已记录这条经历并纳入本次评估；整体知识状态没有变化。记录增加不等于发现了新结论，也不代表这条经历已被独立核验。"
+          : "这条经历已纳入本次评估，整体知识状态发生了变化。下面保留你确认的原话，便于大家核对这次判断的具体依据。",
+      boundary: "单次个人观察不能证明普遍规律；支持、反例与没有变化的经历都需要保留其具体背景。",
+    },
+    stillMissing: [...investigation.knowledgeState.limitations],
     createdAt: now,
   };
 
+  investigation.impactReceipts = [
+    ...(investigation.impactReceipts ?? []),
+    structuredClone(receipt),
+  ];
   return { record, receipt, investigation };
 }

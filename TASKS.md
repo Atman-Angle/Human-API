@@ -604,3 +604,52 @@ Acceptance Criteria:
 - 不新增与 Investigation、ClaimAssessment、Evidence 等已有 Authority 冲突的第二套领域模型。
 - 前端可以通过一个稳定 projection 完成完整 Golden Demo。
 - Projection 保留 Claims、Evidence、冲突、限制条件、Open Questions、Missions、Recent Changes 与 provenance。
+
+# 2026-09-14 — Product Direction v3 Golden Demo continuation
+
+本次用户明确要求跨模块接续；沿用单一模块 Owner，未启动并行 Agent。以下状态不替代其他尚未验收任务。
+
+## A10 — Conversational preparation and confirmed intake
+
+Owner: A
+
+Status: IMPLEMENTED — local automated verification passed; Owner review pending
+
+Allowed Paths: `apps/api/**`, `packages/contracts/**`, `docs/API_CONTRACT.md`
+
+Must Not Modify: Evidence Grade / Re-evaluation Authority in `packages/evidence/**` and `packages/agent/**`; no new persistence system.
+
+Acceptance Criteria:
+
+- 复用 A09 projection 与已有 Investigation/Intake；幂等准备固定主题和邀请。
+- 最多两次追问，只有用户确认的最终摘要进入已有 Evidence Authority。
+- 对话模式如实标为规则摘录，不声称实时 LLM。
+- 测试覆盖取消、改写、拒绝、状态不变、关闭邀请、归因防覆盖与刷新读取。
+
+## 本轮其他 Owner 的接续范围
+
+- **A09 / Owner A**：保留并接续工作区已有的 discovery/community projection 和 immutable receipt 修改；Contract/API 自动测试通过，待 A review。
+- **B01–B07 / Owner B**：仅 `apps/web/**`，使用共享 projection 重排发现、讨论、知识边界、对话、回执；禁止客户端 grading/state mutation。实现及构建通过，桌面/移动浏览器人工 UAT 待补。
+- **C06 / Owner C**：`fixtures/**` 与 `docs/**`；三条明确标记的合成演示样例，覆盖 accepted/rejected/unchanged。不能作为 C03 真实测试参与者完成证据。
+- 所有跨模块修改仍需 A/B/C 对应 Owner Review。未提交、未合并；未宣称 A08 全部实时 LLM 目标完成。
+
+## A10 / B01–B07 continuation — 可见的贡献影响
+
+Owner: A（Contract / intake / tests），B（web），C（文档）。
+Allowed Paths: packages/contracts/**、apps/api/**、apps/web/**、docs/**、TASKS.md。
+Must Not Modify: packages/agent/**、packages/evidence/**；不增加语义新颖性判断或新领域 Authority。
+Acceptance: 回执展示确认原文、处理原因和边界；主题展示已有回执带来的贡献记录；拒绝不伪装知识增加；刷新保持相同内容；历史回执兼容。Status: IN_PROGRESS，Owner review pending。
+
+### A10 / B01–B07 接续：依据 → 未知 → 邀请
+
+沿用 A（apps/api）、B（apps/web）、C（docs）Owner 与上节允许范围。只展开已有 Claim 的引用、Gap 的原因/所缺观察/价值，不新增判断或 Contract。追问每次最多两个缺失上下文，优先具体事件与人工检查，保留最多两轮上限。不宣称已完成实时语义访谈或具体争议自动提炼。
+
+## A11–A17 — Community Chat Vertical Slice
+
+Owner: A
+Status: IN_PROGRESS — backend implementation is in place; dedicated acceptance coverage remains.
+Allowed Paths: `apps/api/**`, `packages/agent/**`, `packages/contracts/**`, `docs/**`, `TASKS.md`
+Must not modify: `apps/web/**`
+
+Scope: implement `docs/COMMUNITY_CHAT_SPEC.md` without replacing existing Evidence, Mission, Knowledge State, Re-evaluation, or Impact Receipt authorities.
+Current evidence: Chat route, proposal create/confirm, participation routing, activity projection, shared schemas, and `npm run verify` passing. Remaining: real proposal lifecycle contract tests, full discussion/maintenance orchestration, durable repository, and end-to-end acceptance.

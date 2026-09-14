@@ -364,3 +364,9 @@ The backend target is complete when:
 ## 13. Implementation Freedom
 
 This document defines the required backend behavior, not a mandatory implementation plan. The backend owner may choose the LLM provider, adapter structure, persistence strategy, prompt design, and exact endpoint names, provided that the existing project Authorities, Contracts, module boundaries, traceability, and Definition of Done are preserved.
+
+## 14. v3 Golden Demo continuation status (2026-09-14)
+
+The currently wired demo uses the existing deterministic Agent research/evidence semantics, SearchService fallback, shared KnowledgeObject projection and immutable intake receipts. Conversation preparation is explicitly `EXTRACTIVE_RULES`: it extracts verbatim clauses, requests missing context at most twice, and never assigns grades, attribution, or Knowledge State. Only the edited, explicitly confirmed summary is re-extracted and passed to existing intake.
+
+This is not a claim that every real-LLM target above has been completed. No new generic conversation platform, second Evidence authority, or production persistence was introduced. In-memory state survives browser refresh but not API process restart. Exact routes remain authoritative in `docs/API_CONTRACT.md`; demo verification and limits are in `docs/DEMO_V3.md`.

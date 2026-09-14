@@ -514,3 +514,45 @@ Persist
 这些能力需要分别完成产品锁定、Contract First 与 Authority Review，不得提前写入当前 API 或前端 DTO。
 
 DiscussionOrganization additionally accepts optional routing (knowledgeObjectId, confidence 0–1, uncertain, rationale), summary, and missionRecommended. relations defaults to an empty array and contains claimId, relation (SUPPORTS / CHALLENGES / LIMITS / OPENS_QUESTION), and rationale. These are candidate interpretations, not Evidence Grade or Knowledge State decisions.
+
+## A09 Discovery and community read projections
+
+- `GET /api/discovery/topics` → `DiscoveryTopic[]` (shared `DiscoveryTopicsResponseSchema`).
+- `GET /api/investigations/:id/community-view` → `KnowledgeObjectProjection`.
+- `GET /api/knowledge-objects/:id` retains its existing fields and returns the same shared projection.
+- These reads never trigger search, LLM calls, Mission creation, or Evidence evaluation.
+- `summary.consensus` projects the Agent's existing public-evidence `known` output; it is not a population consensus claim. `disagreements` projects the existing disagreements; `unknowns` projects current unsupported Claims and the current Knowledge State Gap. Limitations remain visible.
+- `sources` contains actual retrieved source records. `sourceCount` counts unique provider/content IDs; `discussionCount` counts stored discussions only. No invented participant, answer, or comment totals.
+- Search provenance is retained per provider; mixed LIVE/CACHE/FIXTURE is never flattened into LIVE. LLM provenance remains in `llmRuns`.
+- `activeInvitation` is an OPEN Mission for the current next Gap only; absent when that Gap has no open Mission. Historical Missions remain readable.
+- Missing objects return 404; an empty repository returns an empty discovery array. Discovery is a read of existing investigations, not an automatic topic-generation system.
+
+## A06 Immutable submission receipts
+
+`Investigation.impactReceipts?: ImpactReceipt[]` stores submission-time snapshots. Optional only for compatibility with old fixtures. New submissions persist the exact returned receipt within the existing aggregate. `GET /api/evidence/:id/impact` reads that snapshot and never reconstructs stateBefore/stateAfter from current state. Legacy Evidence without a stored receipt returns 404 rather than fabricating history. Storage remains in-memory and is lost on server restart.
+
+## Product Direction v3 — conversational Golden Demo (2026-09-14)
+
+- `POST /api/demo/prepare`: idempotently researches the fixed AI Coding topic through the existing SearchService and creates its initial Investigation and OPEN invitation. Concurrent requests share one preparation. No synthetic participant content is added.
+- `POST /api/missions/:id/conversation`: accepts `ConversationDraftRequest` (`answers`, 0–3 user turns), returns `ConversationDraft`. An initial question comes from the Mission; follow-ups request only missing context, at most two. `preparation=EXTRACTIVE_RULES` is an honest deterministic orchestration mode, not a live LLM claim. Summary is the user's original text, not invented facts. This endpoint never writes Evidence.
+- `POST /api/missions/:id/conversation/confirm`: accepts `ConfirmObservationRequest` (`confirmed: true`, editable `summary`, `demoSample`). Re-extracts only the final confirmed text on the server and calls the existing Evidence intake; returns `EvidenceIntakeResponse`. Missing facts remain absent; client-supplied grade/state/attribution cannot override Authority.
+- `EvidenceSubmission.demoSample` is optional and labels an explicitly selected synthetic demo contribution. It does not bypass grading or affect acceptance. Public content provenance is independent from contribution provenance.
+- Browser refresh reads authoritative Investigation/receipts. The repository remains in-memory; API process restart intentionally resets demo state. No production persistence is claimed.
+
+### 回执的可读贡献说明
+
+ImpactReceipt 新增向后兼容的可选 contribution：observation（仅 accepted 时保存该条确认原文）、explanation（解释采纳/拒绝及状态变化）、boundary（个体观察不等于总体结论）。这些字段在已有 intake 中由实际 grading 和 re-evaluation 结果生成，随原回执保存；projection 原样返回，不在读取时重算。它不表示语义新颖性或已独立核验，也不创建第二套知识状态。旧回执没有该字段时 UI 保留原有展示。
+
+## Community Chat Vertical Slice (2026-09-14)
+
+- `POST /api/chat/route` routes a question to `MATCHED_INVESTIGATION`, `DIRECT_ANSWER`, or `CREATE_PROPOSAL`.
+- `POST /api/investigations/proposals` creates an in-memory proposal; it does not create an Investigation.
+- `POST /api/investigations/proposals/:id/confirm` confirms an existing proposal and creates the Investigation.
+- `POST /api/investigations/:id/participation` routes a message to question, evidence-intake, or mission-interest.
+- `GET /api/investigations/:id/activity` returns derived activity events.
+
+The current implementation is a backend demo slice. Proposals and domain aggregates are not yet durable across process restart.
+
+## Community Chat Vertical Slice
+
+See docs/COMMUNITY_CHAT_SPEC.md for Chat Gateway, Proposal, Participation, Activity, and MaintenanceRun contracts.

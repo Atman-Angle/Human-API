@@ -727,18 +727,28 @@ export function buildKnowledgeStateFromReevaluation(
   reevaluation: ReEvaluation,
   evidenceCount: number,
 ): KnowledgeState {
-  const status: KnowledgeStateStatus = reevaluation.knowledgeState;
+  const statusOrder: Record<KnowledgeStateStatus, number> = {
+    [KNOWLEDGE_STATE.UNRESOLVED]: 0,
+    [KNOWLEDGE_STATE.EARLY_EVIDENCE]: 1,
+    [KNOWLEDGE_STATE.SUPPORTED_WITH_LIMITATIONS]: 2,
+  };
+  const status =
+    statusOrder[reevaluation.knowledgeState] < statusOrder[previous.status]
+      ? previous.status
+      : reevaluation.knowledgeState;
   const supported = new Map(previous.supported.map((item) => [item.id, item]));
   for (const item of reevaluation.supportedNow) supported.set(item.id, item);
+  const unsupported =
+    reevaluation.knowledgeState === KNOWLEDGE_STATE.UNRESOLVED
+      ? previous.unsupported
+      : reevaluation.stillUnsupported;
   return {
     status,
     evidenceCount,
     supported: [...supported.values()],
-    unsupported: reevaluation.stillUnsupported,
-    limitations: reevaluation.limitations,
-    ...(status === KNOWLEDGE_STATE.UNRESOLVED && previous.nextGap
-      ? { nextGap: previous.nextGap }
-      : {}),
+    unsupported,
+    limitations: [...new Set([...previous.limitations, ...reevaluation.limitations])],
+    ...(previous.nextGap ? { nextGap: previous.nextGap } : {}),
     updatedAt: reevaluation.updatedAt,
   };
 }

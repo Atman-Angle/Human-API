@@ -208,6 +208,7 @@ export const MissionListItemSchema = z.object({
 export type MissionListItem = z.infer<typeof MissionListItemSchema>;
 
 export const EvidenceSubmissionSchema = z.object({
+  demoSample: z.boolean().optional(),
   statement: z.string().min(1),
   participantType: z.string().min(1).optional(),
   experience: z.string().min(1).optional(),
@@ -241,6 +242,13 @@ export const ImpactReceiptSchema = z.object({
   stateBefore: KnowledgeStateStatusSchema,
   stateAfter: KnowledgeStateStatusSchema,
   impactSummary: z.string().min(1),
+  contribution: z
+    .object({
+      observation: z.string().min(1).optional(),
+      explanation: z.string().min(1),
+      boundary: z.string().min(1),
+    })
+    .optional(),
   stillMissing: z.array(z.string()),
   createdAt: z.string().datetime(),
 });
@@ -363,6 +371,7 @@ export const InvestigationSchema = z.object({
   actions: z.array(AgentActionSchema),
   missions: z.array(EvidenceMissionSchema),
   evidence: z.array(EvidenceRecordSchema),
+  impactReceipts: z.array(ImpactReceiptSchema).optional(),
   knowledgeState: KnowledgeStateSchema,
   reevaluation: ReEvaluationSchema.optional(),
   discussions: z.array(DiscussionInputSchema).default([]),
@@ -409,3 +418,164 @@ export type ApiError = z.infer<typeof ApiErrorSchema>;
 
 export const InvestigationResponseSchema = InvestigationSchema;
 export type InvestigationResponse = Investigation;
+
+// Read-only user projections; all decisions remain in the existing domain authorities.
+export const CommunitySummarySchema = z.object({
+  consensus: z.array(z.string()),
+  disagreements: z.array(z.string()),
+  unknowns: z.array(z.string()),
+  limitations: z.array(z.string()),
+});
+export const ChatRouteRequestSchema = z.object({
+  message: z.string().trim().min(1).max(6000),
+  investigationId: z.string().min(1).optional(),
+});
+export const ChatRouteResponseSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("DIRECT_ANSWER"),
+    answer: z.string(),
+    limitations: z.array(z.string()),
+  }),
+  z.object({
+    kind: z.literal("MATCHED_INVESTIGATION"),
+    investigationId: z.string(),
+    rationale: z.string(),
+    summary: CommunitySummarySchema.optional(),
+  }),
+  z.object({
+    kind: z.literal("CREATE_PROPOSAL"),
+    proposalId: z.string(),
+    question: z.string(),
+    rationale: z.string(),
+  }),
+  z.object({ kind: z.literal("CLARIFICATION"), question: z.string() }),
+]);
+export type ChatRouteRequest = z.infer<typeof ChatRouteRequestSchema>;
+export type ChatRouteResponse = z.infer<typeof ChatRouteResponseSchema>;
+export const ParticipationRequestSchema = z.object({
+  message: z.string().trim().min(1).max(6000),
+  missionId: z.string().min(1).optional(),
+});
+export const ParticipationResponseSchema = z.discriminatedUnion("intent", [
+  z.object({ intent: z.literal("QUESTION"), answer: z.string(), limitations: z.array(z.string()) }),
+  z.object({
+    intent: z.literal("EVIDENCE_SUBMISSION"),
+    missionId: z.string(),
+    next: z.literal("CONVERSATION"),
+  }),
+  z.object({
+    intent: z.literal("ADDITIONAL_CONTEXT"),
+    accepted: z.literal(true),
+    discussionId: z.string(),
+  }),
+  z.object({
+    intent: z.literal("MISSION_INTEREST"),
+    missionId: z.string(),
+    title: z.string(),
+    description: z.string(),
+  }),
+  z.object({ intent: z.literal("CLARIFICATION"), question: z.string() }),
+]);
+export type ParticipationRequest = z.infer<typeof ParticipationRequestSchema>;
+export const ProposalSchema = z.object({
+  proposalId: z.string(),
+  question: z.string(),
+  rationale: z.string(),
+  createdAt: z.string().datetime(),
+  investigationId: z.string().optional(),
+});
+export type Proposal = z.infer<typeof ProposalSchema>;
+export const ActivityEventSchema = z.object({
+  eventId: z.string(),
+  investigationId: z.string(),
+  eventType: z.enum([
+    "CREATED",
+    "DISCUSSION_ADDED",
+    "EVIDENCE_ADDED",
+    "MISSION_OPENED",
+    "MISSION_CLOSED",
+    "KNOWLEDGE_STATE_CHANGED",
+    "IMPACT_RECEIPT_CREATED",
+  ]),
+  actorType: z.enum(["USER", "AGENT", "SYSTEM"]),
+  summary: z.string(),
+  createdAt: z.string().datetime(),
+});
+export const ActivityEventsResponseSchema = z.array(ActivityEventSchema);
+export const MaintenanceRunSchema = z.object({
+  runId: z.string(),
+  investigationId: z.string(),
+  trigger: z.string(),
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime(),
+  status: z.enum(["SUCCEEDED", "FAILED"]),
+  stateBefore: KnowledgeStateStatusSchema,
+  stateAfter: KnowledgeStateStatusSchema,
+  changed: z.boolean(),
+  createdMissionIds: z.array(z.string()),
+  closedMissionIds: z.array(z.string()),
+  limitations: z.array(z.string()),
+  errorCode: z.string().optional(),
+});
+export type MaintenanceRun = z.infer<typeof MaintenanceRunSchema>;
+
+export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
+export const DiscoveryTopicSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  summary: CommunitySummarySchema,
+  sourceCount: z.number().int().nonnegative(),
+  discussionCount: z.number().int().nonnegative(),
+  knowledgeState: KnowledgeStateStatusSchema,
+  provenance: z.object({ zhihu: SearchProvenanceSchema, global: SearchProvenanceSchema }),
+  activeInvitation: EvidenceMissionSchema.optional(),
+  updatedAt: z.string().datetime(),
+});
+export type DiscoveryTopic = z.infer<typeof DiscoveryTopicSchema>;
+export const DiscoveryTopicsResponseSchema = z.array(DiscoveryTopicSchema);
+export const KnowledgeObjectProjectionSchema = z.object({
+  id: z.string().min(1),
+  kind: z.literal("KNOWLEDGE_OBJECT"),
+  question: z.string().min(1),
+  claims: z.array(ClaimAssessmentSchema),
+  knowledgeState: KnowledgeStateSchema,
+  evidenceGaps: z.array(EvidenceGapSchema),
+  missions: z.array(EvidenceMissionSchema),
+  evidence: z.array(EvidenceRecordSchema),
+  discussions: z.array(DiscussionInputSchema),
+  discussionOrganizations: z.array(DiscussionOrganizationSchema),
+  llmRuns: z.array(LLMRunSchema),
+  reevaluation: ReEvaluationSchema.optional(),
+  provenance: z.object({ search: DiscoveryTopicSchema.shape.provenance }),
+  sources: z.array(SourceRefSchema),
+  summary: CommunitySummarySchema,
+  activeInvitation: EvidenceMissionSchema.optional(),
+  impactReceipts: z.array(ImpactReceiptSchema),
+  updatedAt: z.string().datetime(),
+});
+export type KnowledgeObjectProjection = z.infer<typeof KnowledgeObjectProjectionSchema>;
+
+// Conversation is application preparation only, never an Evidence decision.
+export const ConversationDraftRequestSchema = z.object({
+  answers: z.array(z.string().trim().min(1).max(6000)).max(3),
+});
+export const ConversationDraftSchema = z.object({
+  question: z.string().optional(),
+  summary: z.string(),
+  followUpCount: z.number().int().min(0).max(2),
+  preparation: z.literal("EXTRACTIVE_RULES"),
+  limitations: z.array(z.string()),
+});
+export type ConversationDraft = z.infer<typeof ConversationDraftSchema>;
+export const ConfirmObservationRequestSchema = z.object({
+  confirmed: z.literal(true),
+  summary: z.string().trim().min(1).max(18000),
+  demoSample: z.boolean().default(false),
+});
+export type ConfirmObservationRequest = z.infer<typeof ConfirmObservationRequestSchema>;
+export const EvidenceIntakeResponseSchema = z.object({
+  record: EvidenceRecordSchema,
+  receipt: ImpactReceiptSchema,
+  investigation: InvestigationSchema,
+});
+export type EvidenceIntakeResponse = z.infer<typeof EvidenceIntakeResponseSchema>;

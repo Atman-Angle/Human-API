@@ -1,5 +1,10 @@
 import {
   ApiErrorSchema,
+  DiscoveryTopicsResponseSchema,
+  KnowledgeObjectProjectionSchema,
+  ConversationDraftSchema,
+  EvidenceIntakeResponseSchema,
+  type ConfirmObservationRequest,
   EvidenceRecordSchema,
   ImpactReceiptSchema,
   InvestigationListItemSchema,
@@ -229,3 +234,68 @@ async function requestEvidenceResult(
 
   return { record: record.data, receipt: receipt.data, investigation: investigation.data };
 }
+
+// Validated read/preparation endpoints: no client-side domain projections.
+async function requestCommunity<T>(
+  path: string,
+  schema: { parse: (value: unknown) => T },
+  body?: unknown,
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      cache: "no-store",
+      ...(body === undefined
+        ? {}
+        : {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+    });
+  } catch {
+    throw new ApiClientError(
+      "暂时无法连接服务。请确认 API 已启动，再重试；你的输入仍保留在此页。",
+      "UPSTREAM_UNAVAILABLE",
+      true,
+    );
+  }
+  const result: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsed = ApiErrorSchema.safeParse(result);
+    if (parsed.success)
+      throw new ApiClientError(
+        parsed.data.error.message,
+        parsed.data.error.code,
+        parsed.data.error.retryable,
+        parsed.data.error.requestId,
+      );
+    throw new ApiClientError(`请求未完成（HTTP ${response.status}），请稍后重试。`);
+  }
+  try {
+    return schema.parse(result);
+  } catch {
+    throw new ApiClientError("服务返回的内容格式不正确，请刷新后重试。", "INVALID_RESPONSE");
+  }
+}
+export const prepareGoldenDemo = () =>
+  requestCommunity("/api/demo/prepare", InvestigationResponseSchema, {});
+export const getDiscoveryTopics = () =>
+  requestCommunity("/api/discovery/topics", DiscoveryTopicsResponseSchema);
+export const getKnowledgeObject = (id: string) =>
+  requestCommunity(
+    `/api/knowledge-objects/${encodeURIComponent(id)}`,
+    KnowledgeObjectProjectionSchema,
+  );
+export const prepareConversationDraft = (id: string, answers: string[]) =>
+  requestCommunity(
+    `/api/missions/${encodeURIComponent(id)}/conversation`,
+    ConversationDraftSchema,
+    { answers },
+  );
+export const confirmObservation = (id: string, input: ConfirmObservationRequest) =>
+  requestCommunity(
+    `/api/missions/${encodeURIComponent(id)}/conversation/confirm`,
+    EvidenceIntakeResponseSchema,
+    input,
+  );

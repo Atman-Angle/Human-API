@@ -10,3 +10,16 @@ out/
 .env.*
 !.env.example
 .data/
+
+
+# Temporary / scratch files
+*.bak
+*.err
+*.out
+server_*.log
+server_*.err
+server_*.txt
+_check.py
+_fix_*.py
+.persist-test.mjs
+tmp_*.py

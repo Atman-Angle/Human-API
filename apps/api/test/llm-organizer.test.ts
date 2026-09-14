@@ -55,6 +55,8 @@ describe("discussion organization", () => {
       organize: async () => {
         throw new LLMAdapterError("LLM_TIMEOUT", "timeout");
       },
+        summarizeSources: async () => ({ summaries: {}, run: {} }) as any,
+        synthesizeReport: async () => ({ report: "", limitations: [], run: {} }) as any,
     };
     const result = await new FallbackDiscussionOrganizer(
       live,
@@ -79,6 +81,8 @@ it("does not reuse cached organization across discussion ids", async () => {
         limitations: [],
       })).organize(value);
     },
+      summarizeSources: async () => ({ summaries: {}, run: {} }) as any,
+      synthesizeReport: async () => ({ report: "", limitations: [], run: {} }) as any,
   };
   const organizer = new FallbackDiscussionOrganizer(live, new FakeDiscussionOrganizer());
   await organizer.organize(input);
@@ -94,6 +98,8 @@ it("uses CACHE provenance after a live result is cached", async () => {
       if (fail) throw new LLMAdapterError("LLM_TIMEOUT", "timeout");
       return await new FakeDiscussionOrganizer().organize(input);
     },
+      summarizeSources: async () => ({ summaries: {}, run: {} }) as any,
+      synthesizeReport: async () => ({ report: "", limitations: [], run: {} }) as any,
   };
   const organizer = new FallbackDiscussionOrganizer(live, new FakeDiscussionOrganizer());
   await organizer.organize(input);

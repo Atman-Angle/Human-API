@@ -1,33 +1,69 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Bot, ExternalLink, LoaderCircle, Send, UserRound } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  LoaderCircle,
+  LogIn,
+  MessageCircle,
+  Send,
+  X,
+} from "lucide-react";
 import type {
+  ChatRouteResponse,
   EvidenceIntakeResponse,
   ImpactReceipt,
   KnowledgeObjectProjection,
 } from "@human-api/contracts";
-import { getKnowledgeObject, organizeDiscussion } from "@/lib/api-client";
+import {
+  chatRoute,
+  getKnowledgeObject,
+  getZhihuAuthUrl,
+  getZhihuMe,
+  organizeDiscussion,
+} from "@/lib/api-client";
 import {
   CommunityHeader,
   ConversationDrawer,
   Receipt,
   SourceMode,
-  Understanding,
   errorMessage,
   knowledgeLabels,
 } from "@/app/community-ui";
+
+interface ChatMessage {
+  role: "user" | "agent";
+  content: string;
+}
 
 export default function InvestigationClient({ investigationId }: { investigationId: string }) {
   const [view, setView] = useState<KnowledgeObjectProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [receipt, setReceipt] = useState<ImpactReceipt | null>(null);
-  const [receiptDemo, setReceiptDemo] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [reply, setReply] = useState("");
   const [replying, setReplying] = useState(false);
   const [agentReply, setAgentReply] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ uid: number; fullname: string } | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getZhihuMe()
+      .then((session) => setCurrentUser({ uid: session.user.uid, fullname: session.user.fullname }))
+      .catch(() => setCurrentUser(null));
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     getKnowledgeObject(investigationId)
@@ -35,13 +71,6 @@ export default function InvestigationClient({ investigationId }: { investigation
         if (!cancelled) {
           setView(result);
           setReceipt(result.impactReceipts.at(-1) ?? null);
-          setReceiptDemo(
-            Boolean(
-              result.evidence.find(
-                (record) => record.id === result.impactReceipts.at(-1)?.evidenceId,
-              )?.submission.demoSample,
-            ),
-          );
           setError(null);
         }
       })
@@ -52,267 +81,505 @@ export default function InvestigationClient({ investigationId }: { investigation
       cancelled = true;
     };
   }, [investigationId, attempt]);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages]);
+
   function complete(result: EvidenceIntakeResponse) {
     setJoining(false);
     setReceipt(result.receipt);
-    setReceiptDemo(Boolean(result.record.submission.demoSample));
     setAttempt((v) => v + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
   const invitationGap = view?.evidenceGaps.find(
     (gap) => gap.id === view.activeInvitation?.evidenceGapId,
   );
+  const communityDiscussions =
+    view?.discussions.filter((d) => d.source !== "INITIAL_ARTICLE_GENERATION") ?? [];
+
+  const sources = view?.sources ?? [];
+  const visibleSources = sourcesExpanded ? sources : sources.slice(0, 10);
+
+  async function startLogin() {
+    setAuthBusy(true);
+    try {
+      const result = await getZhihuAuthUrl(`${window.location.origin}/auth/zhihu/callback`);
+      window.location.assign(result.url);
+    } catch (e) {
+      setAgentReply(errorMessage(e));
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleDiscussionSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reply.trim() || replying || !currentUser) return;
+    setReplying(true);
+    try {
+      await organizeDiscussion({
+        id: "disc-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+        content: reply.trim(),
+        investigationId,
+        authorId: String(currentUser.uid),
+        authorLabel: currentUser.fullname,
+        source: "DISCUSSION",
+        createdAt: new Date().toISOString(),
+      });
+      setAgentReply("你的讨论已收到。Agent 会关注其中有价值的经历。");
+      setReply("");
+      setAttempt((v) => v + 1);
+    } catch (e2) {
+      setAgentReply(errorMessage(e2));
+    } finally {
+      setReplying(false);
+    }
+  }
+
+  async function handleChatSend() {
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim();
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", content: msg }]);
+    setChatLoading(true);
+    try {
+      const result: ChatRouteResponse = await chatRoute(msg, investigationId);
+      const answer = "answer" in result ? result.answer : "暂时没有更多信息。";
+      setChatMessages((prev) => [...prev, { role: "agent", content: answer }]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "agent", content: "暂时无法回答，请稍后再试。" },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
   return (
     <div className="app-shell">
       <CommunityHeader />
-      <main className="hg-page hg-detail">
-        <Link href="/" className="hg-back">
-          ← 返回 Agent 发现
-        </Link>
-        {error && (
-          <div className="hg-error" role="alert">
-            <p>{error}</p>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setAttempt((v) => v + 1)}
-            >
-              重试
-            </button>
-          </div>
-        )}
-        {!view && !error && (
-          <div className="hg-loading">
-            <LoaderCircle className="spin" />
-            正在读取公开讨论与知识边界…
-          </div>
-        )}
-        {view && (
-          <>
-            <header className="hg-detail-header">
-              <span className="hg-eyebrow">AI CODING · 持续共同理解的问题</span>
-              <h1>{view.question}</h1>
-              <p>{knowledgeLabels[view.knowledgeState.status]}。公开讨论是起点，不是最终答案。</p>
-              <div className="hg-source-row">
-                <span>知乎：</span>
-                <SourceMode mode={view.provenance.search.zhihu} />
-                <span>全网：</span>
-                <SourceMode mode={view.provenance.search.global} />
-              </div>
-            </header>
-            {receipt && <Receipt receipt={receipt} demoSample={receiptDemo} />}
-            <article className="hg-knowledge-article">
-              <div className="hg-article-kicker"><Bot size={15} /> Agent 汇编 · {new Date(view.updatedAt).toLocaleString("zh-CN")} 更新</div>
-              <h2>{view.question.replace(/\s*治理验收\s*\d+$/, "")}</h2>
-              <div className="hg-article-meta"><span>Human Gateway 编辑部</span><span>持续更新</span></div>
-              <div className="hg-article-body">
-                {view.summary.consensus.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                {view.summary.disagreements.length > 0 && <><h3>分歧仍然存在</h3>{view.summary.disagreements.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</>}
-                {view.summary.unknowns.length > 0 && <><h3>接下来还需要知道什么</h3>{view.summary.unknowns.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</>}
-                {view.summary.limitations.length > 0 && <p className="hg-article-note">本文仍有边界：{view.summary.limitations.join("；")}</p>}
-              </div>
-              <details className="hg-article-sources"><summary>查看引用与原始讨论（{view.sources.length}）</summary><p>Agent 会在新的讨论和 Evidence 进入后继续修订这篇文章。</p></details>
-            </article>
-            <section className="hg-discussions hg-community-thread">
-              <div className="hg-section-heading"><h2>社区讨论 · 人与人，人与 Agent</h2><span>每条发言都会被 Agent 组织为 Claim、分歧或 Evidence Gap</span></div>
-              <div className="hg-thread-message agent-message"><span className="hg-avatar"><Bot size={16} /></span><div><strong>Human Gateway Agent</strong><p>我会保留不同意见，不把一条回复直接当成事实。请分享你的亲身经历、反例或疑问。</p></div></div>
-              <form className="hg-reply-form" onSubmit={async (event) => {
-                event.preventDefault(); const content = reply.trim(); if (!content || replying) return;
-                setReplying(true); setAgentReply(null);
-                try { const result = await organizeDiscussion({ id: `discussion-${Date.now()}`, investigationId, content, authorLabel: "社区参与者", createdAt: new Date().toISOString(), source: "COMMUNITY" }); setAgentReply(result.summary ?? "Agent 已收到这条讨论，并将它标记为待进一步求证。"); setReply(""); setAttempt((v) => v + 1); } catch (e) { setAgentReply(errorMessage(e)); } finally { setReplying(false); }
-              }}>
-                <UserRound size={17} /><textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="写下你的经历、质疑或反例……" rows={3} />
-                <button className="primary-button" disabled={!reply.trim() || replying} type="submit">{replying ? <LoaderCircle className="spin" size={16} /> : <Send size={16} />} {replying ? "Agent 正在组织" : "发布并让 Agent 组织"}</button>
-              </form>
-              {agentReply && <div className="hg-thread-message agent-message"><span className="hg-avatar"><Bot size={16} /></span><div><strong>Agent 组织结果</strong><p>{agentReply}</p></div></div>}
-            </section>
-            <details className="hg-discussions hg-source-archive">
-              <summary className="hg-section-heading">
-                <h2>引用与原始讨论</h2>
-                <span>{view.sources.length} 条公开来源 · 以下是原始内容摘录，不代表平台认同</span>
-              </summary>
-              {view.sources.slice(0, 3).map((source) => (
-                <article className="hg-source" key={`${source.provider}:${source.contentId}`}>
-                  <div className="hg-author">
-                    <span className="hg-avatar">{(source.authorName ?? "公").slice(0, 1)}</span>
-                    <div>
-                      <strong>{source.authorName || "公开来源"}</strong>
-                      <small>
-                        {source.provider === "ZHIHU" ? "知乎公开内容" : "全网公开内容"} ·{" "}
-                        {source.publishedAt
-                          ? new Date(source.publishedAt).toLocaleDateString("zh-CN")
-                          : "时间未提供"}
-                      </small>
+      <div className="hg-layout">
+        <main className="hg-main-content">
+          <Link href="/" className="hg-back">
+            ← 返回
+          </Link>
+          {error && (
+            <div className="hg-error" role="alert">
+              <p>{error}</p>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setAttempt((v) => v + 1)}
+              >
+                重试
+              </button>
+            </div>
+          )}
+          {!view && !error && (
+            <div className="hg-loading">
+              <LoaderCircle className="spin" />
+              加载中…
+            </div>
+          )}
+          {view && (
+            <>
+              <header className="hg-detail-header">
+                <span className="hg-eyebrow">正在探索的问题</span>
+                <h1>{view.question}</h1>
+                <p>{knowledgeLabels[view.knowledgeState.status]}</p>
+                <div className="hg-article-stats">
+                  <span>来源 {sources.length}</span>
+                  <span>经历 {view.evidence.length}</span>
+                  <span>讨论 {communityDiscussions.length}</span>
+                </div>
+                <div className="hg-source-row">
+                  <span>知乎：</span>
+                  <SourceMode mode={view.provenance.search.zhihu} />
+                  <span>全网：</span>
+                  <SourceMode mode={view.provenance.search.global} />
+                </div>
+              </header>
+
+              {receipt && <Receipt receipt={receipt} />}
+
+              <article className="hg-knowledge-article">
+                <div className="hg-article-kicker">
+                  <Bot size={15} /> 来自公开来源 ·{" "}
+                  {new Date(view.updatedAt).toLocaleString("zh-CN")} 更新
+                </div>
+
+                {view.synthesizedReport && (
+                  <div className="hg-article-report">
+                    <div className="hg-report-content">
+                      {view.synthesizedReport.split("\n").map((line, i) => {
+                        if (line.startsWith("### ")) {
+                          return <h3 key={i} className="hg-report-h3">{line.slice(4)}</h3>;
+                        }
+                        if (line.startsWith("## ")) {
+                          return <h2 key={i} className="hg-report-h2">{line.slice(3)}</h2>;
+                        }
+                        if (line.startsWith("---")) {
+                          return <hr key={i} className="hg-report-hr" />;
+                        }
+                        if (line.startsWith("*") && line.endsWith("*")) {
+                          return <p key={i} className="hg-report-note">{line.slice(1, -1)}</p>;
+                        }
+                        if (line.trim() === "") {
+                          return <br key={i} />;
+                        }
+                        return <p key={i} className="hg-report-p">{line}</p>;
+                      })}
                     </div>
                   </div>
-                  <h3>{source.title}</h3>
-                  <p className="hg-excerpt">{source.excerpt}</p>
-                  <a className="hg-source-link" href={source.url} target="_blank" rel="noreferrer">
-                    查看原始来源 <ExternalLink size={13} />
-                  </a>
-                </article>
-              ))}
-              {view.sources.length > 3 && (
-                <details className="hg-more-sources">
-                  <summary>查看另外 {view.sources.length - 3} 条来源</summary>
-                  {view.sources.slice(3).map((source) => (
-                    <p key={`${source.provider}:${source.contentId}`}>
-                      <a href={source.url} target="_blank" rel="noreferrer">
-                        {source.title} ↗
-                      </a>
+                )}
+
+                <div className="hg-article-body">
+                  {sources.length > 0 ? (
+                    <details className="hg-source-details">
+                      <summary className="hg-source-summary">
+                        查看 {sources.length} 个来源详情
+                      </summary>
+                      <div className="hg-source-articles">
+                        {sources.map((source) => (
+                          <section key={source.id} className="hg-source-card">
+                            <div className="hg-source-card-header">
+                              <span className="hg-source-badge">
+                                {source.provider === "ZHIHU" ? "知乎帖子" : "全网来源"}
+                              </span>
+                              <h3>{source.title}</h3>
+                            </div>
+                            {source.authorName && (
+                              <div className="hg-source-author">
+                                <span className="hg-avatar-mini">
+                                  {(source.authorName ?? "?").slice(0, 1)}
+                                </span>
+                                <span>{source.authorName}</span>
+                              </div>
+                            )}
+                            <p className="hg-source-excerpt">{source.llmSummary ?? source.excerpt}</p>
+                            <a
+                              className="hg-source-link"
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              查看原文 <ExternalLink size={13} />
+                            </a>
+                          </section>
+                        ))}
+                      </div>
+                    </details>
+                  ) : (
+                    <p>当前尚未获得可展示的公开来源。</p>
+                  )}
+                </div>
+              </article>
+
+              {/* 边界：还需要推进什么 */}
+              <section className="hg-boundaries-section">
+                <div className="hg-boundaries-header">
+                  <Bot size={18} />
+                  <h2>还需要推进的边界</h2>
+                </div>
+                <p className="hg-note">
+                  以下内容来自 Agent 对现有公开讨论的分析，指出了理解上仍未被充分解答的缺口。
+                </p>
+
+                {view.summary.unknowns.length > 0 && (
+                  <div className="hg-boundary-block">
+                    <h3>尚未明确的问题</h3>
+                    <ul>
+                      {view.summary.unknowns.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {view.evidenceGaps.length > 0 && (
+                  <div className="hg-boundary-block">
+                    <h3>证据缺口</h3>
+                    {view.evidenceGaps.map((gap) => (
+                      <div key={gap.id} className="hg-gap-card">
+                        <p className="hg-gap-question">
+                          <strong>缺口：</strong>
+                          {gap.claim}
+                        </p>
+                        <p className="hg-gap-why">{gap.whyUnresolved}</p>
+                        <p className="hg-gap-need">
+                          <strong>需要补充：</strong>
+                          {gap.missingObservation}
+                        </p>
+                        {gap.expectedValue && <p className="hg-note">{gap.expectedValue}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {view.summary.disagreements.length > 0 && (
+                  <div className="hg-boundary-block">
+                    <h3>仍存在分歧</h3>
+                    {view.summary.disagreements.map((item, i) => (
+                      <p key={i}>{item}</p>
+                    ))}
+                  </div>
+                )}
+
+                {view.summary.limitations.length > 0 && (
+                  <div className="hg-boundary-block">
+                    <h3>当前理解的局限</h3>
+                    <ul>
+                      {view.summary.limitations.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {view.activeInvitation && (
+                  <div className="hg-boundary-invite">
+                    <p>
+                      <strong>你可以参与推进：</strong>
+                      {view.activeInvitation.description}
                     </p>
+                    {invitationGap && (
+                      <p className="hg-note">
+                        <strong>想补上的具体信息：</strong>
+                        {invitationGap.missingObservation}
+                      </p>
+                    )}
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={() => setJoining(true)}
+                    >
+                      分享我的经历 <ArrowRight size={17} />
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              <section className="hg-discussions">
+                <h2 className="hg-section-title">
+                  <MessageCircle size={18} />
+                  大家的讨论
+                </h2>
+                {!currentUser ? (
+                  <div className="hg-login-prompt">
+                    <LogIn size={16} />
+                    <span>
+                      <button
+                        className="link-button"
+                        type="button"
+                        onClick={startLogin}
+                        disabled={authBusy}
+                      >
+                        登录知乎
+                      </button>
+                      ，参与讨论
+                    </span>
+                  </div>
+                ) : (
+                  <form className="hg-reply-form" onSubmit={handleDiscussionSubmit}>
+                    <MessageCircle size={20} />
+                    <textarea
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      placeholder="说说你的经历或看法…"
+                      maxLength={6000}
+                      disabled={replying}
+                    />
+                    <button
+                      className="primary-button"
+                      type="submit"
+                      disabled={!reply.trim() || replying}
+                    >
+                      {replying ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />}
+                      发送
+                    </button>
+                  </form>
+                )}
+                {agentReply && (
+                  <div className="hg-thread-message agent-message">
+                    <Bot size={16} />
+                    <p>{agentReply}</p>
+                  </div>
+                )}
+                {communityDiscussions.length > 0 ? (
+                  <div className="hg-discussion-list">
+                    {communityDiscussions.map((d, i) => (
+                      <div key={d.id ?? i} className="hg-thread-message">
+                        <strong>{d.authorLabel ?? "匿名"}</strong>
+                        <p>{d.content}</p>
+                        {d.createdAt && (
+                          <small>{new Date(d.createdAt).toLocaleDateString("zh-CN")}</small>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="hg-empty-discussions">还没有讨论，来写第一条吧。</p>
+                )}
+              </section>
+
+              {view.evidence.length > 0 && (
+                <details className="hg-evidence">
+                  <summary>收集到的经历（{view.evidence.length} 条）</summary>
+                  {view.evidence.map((record) => (
+                    <article key={record.id} className="hg-source">
+                      <span className="hg-eyebrow">用户提交的经历</span>
+                      <p>{record.submission.statement}</p>
+                      <small>
+                        {view.impactReceipts.find((r) => r.evidenceId === record.id)?.accepted
+                          ? "已纳入参考"
+                          : "暂未纳入"}
+                      </small>
+                    </article>
                   ))}
                 </details>
               )}
-              {view.discussions.map((discussion) => (
-                <article className="hg-source" key={discussion.id}>
-                  <strong>{discussion.authorLabel ?? "参与者"}</strong>
-                  <p>{discussion.content}</p>
-                  <small>用户提交的讨论 · 尚不等于已采纳证据</small>
-                </article>
-              ))}
-              {!view.sources.length && !view.discussions.length && (
-                <p>当前尚未获得可展示的公开讨论，不编造社区声音。</p>
-              )}
-            </details>
-            <section className="hg-agent-organization">
-              <div className="hg-section-heading">
-                <h2>
-                  <Bot size={21} /> Agent 把讨论整理成了这些
-                </h2>
-                <span>规则整理 · 不是实时 LLM 声明</span>
-              </div>
-              <Understanding summary={view.summary} />
-              <h3>这些判断依据什么？</h3>
-              <p className="hg-note">
-                以下是服务端已有判断与引用，不是前端新生成的结论。引用相关不等于原文已证明判断。
-              </p>
-              {view.claims.map((claim) => (
-                <article className="hg-source" key={claim.id}>
-                  <p>
-                    <strong>{claim.claim}</strong>
-                  </p>
-                  <p>{claim.rationale}</p>
-                  <details>
-                    <summary>查看对应公开来源与已记录经历</summary>
-                    {view.sources
-                      .filter((source) => claim.sourceRefIds.includes(source.id))
-                      .map((source) => (
-                        <div key={source.id}>
-                          <a href={source.url} target="_blank" rel="noreferrer">
-                            {source.title || "查看原始来源"}
-                          </a>
-                          <blockquote>{source.excerpt}</blockquote>
-                        </div>
-                      ))}
-                    {view.evidence
-                      .filter((record) => claim.evidenceIds.includes(record.id))
-                      .map((record) => (
-                        <blockquote key={record.id}>
-                          {record.submission.demoSample
-                            ? "合成演示经历："
-                            : "用户确认、未经独立核验："}
-                          {record.submission.statement}
-                        </blockquote>
-                      ))}
-                    {!claim.sourceRefIds.length && !claim.evidenceIds.length && (
-                      <p>当前没有可追溯引用，不把这条判断当作已证实事实。</p>
+
+              <footer className="hg-footer">
+                最后更新：
+                {new Date(view!.updatedAt).toLocaleString("zh-CN")}
+              </footer>
+            </>
+          )}
+        </main>
+
+        <aside className={"hg-sources-sidebar" + (sourcesExpanded ? " expanded" : "")}>
+          <div className="hg-sources-header">
+            <button
+              className="hg-sources-toggle"
+              type="button"
+              onClick={() => setSourcesExpanded(!sourcesExpanded)}
+              title={sourcesExpanded ? "收起来源" : "展开来源"}
+              aria-expanded={sourcesExpanded}
+              aria-label={sourcesExpanded ? "收起来源" : "展开来源"}
+            >
+              {sourcesExpanded ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+            </button>
+            <span className="hg-sources-title">来源</span>
+            <span className="hg-sources-count">{sources.length}</span>
+          </div>
+          <div className="hg-sources-list">
+            {visibleSources.map((src) => (
+              <a
+                key={src.id}
+                className="hg-source-mini"
+                href={src.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="hg-source-mini-title">{src.title}</span>
+                {sourcesExpanded && (
+                  <span className="hg-source-mini-meta">
+                    {src.authorName && <span>{src.authorName}</span>}
+                    {src.publishedAt && (
+                      <span>{new Date(src.publishedAt).toLocaleDateString("zh-CN")}</span>
                     )}
-                  </details>
-                </article>
+                    <ExternalLink size={11} />
+                  </span>
+                )}
+              </a>
+            ))}
+            {!sourcesExpanded && sources.length > 10 && (
+              <button
+                className="hg-sources-more"
+                type="button"
+                onClick={() => setSourcesExpanded(true)}
+              >
+                +{sources.length - 10} 更多
+              </button>
+            )}
+          </div>
+
+          {view && view.evidence.length > 0 && (
+            <details className="hg-evidence-badge">
+              <summary>经历记录（{view.evidence.length}）</summary>
+              <div className="hg-evidence-badge-list">
+                {view.evidence.map((r) => (
+                  <p key={r.id}>{r.submission.statement.slice(0, 80)}…</p>
+                ))}
+              </div>
+            </details>
+          )}
+        </aside>
+      </div>
+
+      <div className="hg-chat-floating">
+        {!chatOpen ? (
+          <button
+            className="hg-chat-button"
+            type="button"
+            onClick={() => setChatOpen(true)}
+            title="与 Agent 对话"
+          >
+            <MessageCircle size={22} />
+          </button>
+        ) : (
+          <div className="hg-chat-panel">
+            <div className="hg-chat-header">
+              <Bot size={18} />
+              <span>与 Agent 对话</span>
+              <button className="icon-button" type="button" onClick={() => setChatOpen(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="hg-chat-messages">
+              {chatMessages.length === 0 && (
+                <p className="hg-chat-empty">
+                  有什么想问的？你的经历或看法都可能帮助完善这篇文章。
+                </p>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={"hg-chat-message " + msg.role}>
+                  {msg.role === "agent" && <Bot size={14} />}
+                  <span>{msg.content}</span>
+                </div>
               ))}
-              <details className="hg-boundaries">
-                <summary>这些理解有什么边界？</summary>
-                <ul>
-                  {view.summary.limitations.map((line, i) => (
-                    <li key={i}>{line}</li>
-                  ))}
-                </ul>
-              </details>
-            </section>
-            <section className="hg-invitation">
-              <span className="hg-eyebrow">一份面向亲历者的邀请</span>
-              <h2>只说你经历过的一次，不必代表所有人。</h2>
-              <p>
-                {view.activeInvitation?.description ??
-                  "当前没有可提交的开放邀请。你仍然可以查看已有讨论和贡献。"}
-              </p>
-              {invitationGap && (
-                <div>
-                  <h3>为什么需要你的经历？</h3>
-                  <p>{invitationGap.whyUnresolved}</p>
-                  <p>
-                    <strong>想补上的具体信息：</strong>
-                    {invitationGap.missingObservation}
-                  </p>
-                  <p className="hg-note">{invitationGap.expectedValue}</p>
+              {chatLoading && (
+                <div className="hg-chat-message agent">
+                  <Bot size={14} />
+                  <span className="hg-chat-typing">
+                    <LoaderCircle className="spin" size={14} /> 思考中…
+                  </span>
                 </div>
               )}
-              {view.activeInvitation && (
-                <>
-                  <p className="hg-note">
-                    适合：{view.activeInvitation.qualification.join("、")}
-                    。支持、反例、没变化都欢迎。
-                  </p>
-                  <button className="primary-button" type="button" onClick={() => setJoining(true)}>
-                    分享我的经历 <ArrowRight size={17} />
-                  </button>
-                  <small>自然对话 → 确认摘要 → 服务端评估 → 贡献回执</small>
-                </>
-              )}
-            </section>
-            {view.evidence.length > 0 && (
-              <section className="hg-evidence" id="community-contributions">
-                <h2>共同理解留下了哪些新依据</h2>
-                <p className="hg-note">
-                  这里记录每次贡献的处理结果，不把新增记录等同于新的共识。用户确认不等于独立核验。
-                </p>
-                {view.evidence.map((record) => (
-                  <article key={record.id} className="hg-source">
-                    <span className="hg-eyebrow">
-                      {record.submission.demoSample
-                        ? "GOLDEN_FIXTURE · 合成演示示例"
-                        : "用户确认的经历 · 非独立核验"}
-                    </span>
-                    <p>{record.submission.statement}</p>
-                    {view.impactReceipts.find((item) => item.evidenceId === record.id)
-                      ?.contribution && (
-                      <p>
-                        {
-                          view.impactReceipts.find((item) => item.evidenceId === record.id)
-                            ?.contribution?.explanation
-                        }
-                      </p>
-                    )}
-                    <small>
-                      {view.impactReceipts.find((item) => item.evidenceId === record.id)?.accepted
-                        ? "已纳入本次缺口的证据"
-                        : "暂未纳入证据"}
-                    </small>
-                  </article>
-                ))}
-              </section>
-            )}
-            <details className="hg-technical hg-user-hidden">
-              <summary>技术与审计详情：Claims、Evidence、来源与评估</summary>
-              <pre>{JSON.stringify(view, null, 2)}</pre>
-            </details>
-            <footer className="hg-footer">
-              刷新读取 API
-              持久化保存的状态、证据与回执。若服务端存储不可用，页面会显示真实读取失败。
-              <br />
-              最后更新：{new Date(view.updatedAt).toLocaleString("zh-CN")}
-            </footer>
-            {joining && view.activeInvitation && (
-              <ConversationDrawer
-                mission={view.activeInvitation}
-                onClose={() => setJoining(false)}
-                onComplete={complete}
+              <div ref={chatEndRef} />
+            </div>
+            <form
+              className="hg-chat-input"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleChatSend();
+              }}
+            >
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="输入你的问题或经历…"
+                disabled={chatLoading}
               />
-            )}
-          </>
+              <button type="submit" disabled={!chatInput.trim() || chatLoading}>
+                <Send size={16} />
+              </button>
+            </form>
+          </div>
         )}
-      </main>
+      </div>
+
+      {joining && view && view.activeInvitation && (
+        <ConversationDrawer
+          mission={view.activeInvitation}
+          onClose={() => setJoining(false)}
+          onComplete={complete}
+        />
+      )}
     </div>
   );
 }

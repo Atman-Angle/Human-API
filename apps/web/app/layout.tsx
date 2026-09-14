@@ -4,8 +4,8 @@ import "./globals.css";
 import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Human Gateway",
-  description: "Agent-driven evidence seeking on Zhihu.",
+  title: "群知——人与 AI 共生的知识社区",
+  description: "人与 AI 共生的知识社区 —— 群知",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

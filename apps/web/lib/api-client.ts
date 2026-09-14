@@ -21,6 +21,18 @@ import {
   type MissionListItem,
   type DiscussionInput,
   type DiscussionOrganization,
+  MissionInvitationListSchema,
+  MissionDetailSchema,
+  type MissionDetail,
+  AuthSessionSchema,
+  type AuthSession,
+  ZhihuFolloweesResponseSchema,
+  ZhihuCreatedContentsResponseSchema,
+  type ZhihuFolloweesResponse,
+  type ZhihuCreatedContentsResponse,
+  ChatRouteResponseSchema,
+  type ChatRouteRequest,
+  type ChatRouteResponse,
 } from "@human-api/contracts";
 
 const API_BASE_URL =
@@ -82,6 +94,40 @@ export function createInvestigation(question: string): Promise<Investigation> {
   });
 }
 
+export async function chatRoute(
+  message: string,
+  investigationId?: string,
+): Promise<ChatRouteResponse> {
+  const body: ChatRouteRequest = investigationId ? { message, investigationId } : { message };
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/chat/route`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiClientError("无法连接求证服务，请确认后端已启动。", "UPSTREAM_UNAVAILABLE", true);
+  }
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsed = ApiErrorSchema.safeParse(data);
+    if (parsed.success) {
+      throw new ApiClientError(
+        parsed.data.error.message,
+        parsed.data.error.code,
+        parsed.data.error.retryable,
+      );
+    }
+    throw new ApiClientError(`请求失败（HTTP ${response.status}）`);
+  }
+  const parsed = ChatRouteResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new ApiClientError("服务返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  }
+  return parsed.data;
+}
+
 export function getInvestigation(investigationId: string): Promise<Investigation> {
   return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`);
 }
@@ -139,6 +185,7 @@ export async function listMissions(status: "OPEN" | "CLOSED" = "OPEN"): Promise<
 export async function organizeDiscussion(input: DiscussionInput): Promise<DiscussionOrganization> {
   const response = await fetch(`${API_BASE_URL}/api/discussions/organize`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
@@ -157,7 +204,7 @@ export async function organizeDiscussion(input: DiscussionInput): Promise<Discus
   return parsed.data;
 }
 
-export async function getMission(missionId: string): Promise<unknown> {
+export async function getMission(missionId: string): Promise<MissionDetail> {
   const response = await fetch(`${API_BASE_URL}/api/missions/${encodeURIComponent(missionId)}`, {
     cache: "no-store",
   });
@@ -170,7 +217,10 @@ export async function getMission(missionId: string): Promise<unknown> {
     }
     throw new ApiClientError(`请求失败（HTTP ${response.status}）`);
   }
-  return body;
+  const parsed = MissionDetailSchema.safeParse(body);
+  if (!parsed.success)
+    throw new ApiClientError("服务返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  return parsed.data;
 }
 
 export function createMission(investigationId: string, gapId?: string): Promise<Investigation> {
@@ -247,6 +297,7 @@ async function requestCommunity<T>(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
+      credentials: "include",
       ...(body === undefined
         ? {}
         : {
@@ -302,5 +353,155 @@ export const confirmObservation = (id: string, input: ConfirmObservationRequest)
     input,
   );
 
+export const dispatchMissionInvitations = (missionId: string) =>
+  requestCommunity(
+    `/api/missions/${encodeURIComponent(missionId)}/invitations`,
+    MissionInvitationListSchema,
+  );
+export const runInvestigationMaintenance = (id: string) =>
+  requestCommunity(
+    `/api/investigations/${encodeURIComponent(id)}/maintenance`,
+    InvestigationResponseSchema,
+  );
 export const getHotList = (limit = 10): Promise<HotListResponse> =>
   requestCommunity(`/api/discovery/hot-list?limit=${limit}`, HotListResponseSchema);
+
+export const getZhihuFollowees = (offset = "0", limit = 20): Promise<ZhihuFolloweesResponse> =>
+  requestCommunity(
+    `/api/auth/zhihu/followees?offset=${encodeURIComponent(offset)}&limit=${limit}`,
+    ZhihuFolloweesResponseSchema,
+  );
+
+export const getZhihuCreatedContents = (
+  offset = "0",
+  limit = 20,
+): Promise<ZhihuCreatedContentsResponse> =>
+  requestCommunity(
+    `/api/auth/zhihu/contents?offset=${encodeURIComponent(offset)}&limit=${limit}`,
+    ZhihuCreatedContentsResponseSchema,
+  );
+
+// --- Zhihu OAuth ---
+export interface ZhihuAuthUrlResponse {
+  url: string;
+  state: string;
+}
+
+export interface ZhihuCallbackRequest {
+  code: string;
+  state?: string;
+}
+
+export async function getZhihuAuthUrl(redirectUri?: string): Promise<ZhihuAuthUrlResponse> {
+  const params = redirectUri ? "?redirect_uri=" + encodeURIComponent(redirectUri) : "";
+  const response = await fetch(API_BASE_URL + "/api/auth/zhihu/url" + params, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!response.ok) throw new ApiClientError("获取知乎授权地址失败", "UPSTREAM_UNAVAILABLE", true);
+  return response.json() as Promise<ZhihuAuthUrlResponse>;
+}
+
+export async function postZhihuCallback(input: ZhihuCallbackRequest): Promise<AuthSession> {
+  const response = await fetch(API_BASE_URL + "/api/auth/zhihu/callback", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const err = body as { message?: unknown; error?: { message?: unknown } } | null;
+    throw new ApiClientError(
+      String(err?.error?.message ?? err?.message ?? "知乎登录失败"),
+      "UPSTREAM_UNAVAILABLE",
+      true,
+    );
+  }
+  const parsed = AuthSessionSchema.safeParse(body);
+  if (!parsed.success)
+    throw new ApiClientError("登录返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  return parsed.data;
+}
+
+export async function getZhihuMe(): Promise<AuthSession> {
+  const response = await fetch(API_BASE_URL + "/api/auth/zhihu/me", {
+    cache: "no-store",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsed = ApiErrorSchema.safeParse(body);
+    if (parsed.success) throw new ApiClientError(parsed.data.error.message, parsed.data.error.code);
+    throw new ApiClientError("当前未登录", "AUTH_REQUIRED");
+  }
+  const parsed = AuthSessionSchema.safeParse(body);
+  if (!parsed.success)
+    throw new ApiClientError("登录状态返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  return parsed.data;
+}
+
+export async function logoutZhihu(): Promise<void> {
+  await fetch(API_BASE_URL + "/api/auth/zhihu/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+// --- Zhihu Community ---
+export interface ZhihuPublishRequest {
+  ring_id: string;
+  title?: string;
+  content: string;
+  image_urls?: string[];
+}
+
+export function getZhihuRing(ringId: string): Promise<unknown> {
+  return fetch(API_BASE_URL + "/api/zhihu/ring?ring_id=" + encodeURIComponent(ringId)).then((r) => {
+    if (!r.ok) throw new ApiClientError("获取圈子详情失败", "UPSTREAM_UNAVAILABLE", true);
+    return r.json();
+  });
+}
+
+export function postZhihuPublish(input: ZhihuPublishRequest): Promise<unknown> {
+  return fetch(API_BASE_URL + "/api/zhihu/publish", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }).then((r) => {
+    if (!r.ok) throw new ApiClientError("发布想法失败", "UPSTREAM_UNAVAILABLE", true);
+    return r.json();
+  });
+}
+
+export function getZhihuComments(
+  contentToken: string,
+  contentType: "pin" | "comment" = "pin",
+): Promise<unknown> {
+  return fetch(
+    API_BASE_URL +
+      "/api/zhihu/comments?content_token=" +
+      encodeURIComponent(contentToken) +
+      "&content_type=" +
+      contentType,
+  ).then((r) => {
+    if (!r.ok) throw new ApiClientError("获取评论列表失败", "UPSTREAM_UNAVAILABLE", true);
+    return r.json();
+  });
+}
+
+export function postZhihuComment(input: {
+  content_token: string;
+  content_type: "pin" | "comment";
+  content: string;
+}): Promise<unknown> {
+  return fetch(API_BASE_URL + "/api/zhihu/comment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }).then((r) => {
+    if (!r.ok) throw new ApiClientError("创建评论失败", "UPSTREAM_UNAVAILABLE", true);
+    return r.json();
+  });
+}

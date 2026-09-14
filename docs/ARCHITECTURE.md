@@ -284,6 +284,19 @@ Community 不得重新实现 Evidence Grade 或 Agent Re-evaluation。
 
 Persistence 不得决定 Knowledge State、Evidence Grade 或 Gap Suitability。
 
+### 当前轻量持久化实现
+
+当前 API 使用 Node.js 内置 `node:sqlite` 提供轻量本地数据库，不引入原生第三方数据库依赖：
+
+- `apps/api/src/repository.ts` 中的 `SqliteInvestigationRepository` 是 Persistence Authority 的当前实现；
+- Investigation、Proposal 和 MaintenanceRun 保持现有 Contract-shaped JSON payload，SQLite 负责 durable storage、按类型和 ID 索引，以及重启恢复；
+- 默认数据库文件为 `.data/investigations.sqlite`，可通过 `INVESTIGATION_DB_PATH` 或 `RuntimeOptions.dataPath` 指定；
+- 现有 `.data/investigations.json` 在首次创建默认 SQLite 文件且数据库为空时自动迁移，不删除原 JSON；
+- 旧 JSON 存储仍可通过 `INVESTIGATION_STORAGE=json` 或 `.json` 数据路径兼容使用；
+- 运行时要求 Node.js `>=22.5.0`，以使用 `node:sqlite`。
+
+这不是第二套 DTO、状态机或业务判断；数据库只保存和读取已有 Repository 聚合。
+
 ---
 
 ## 依赖方向

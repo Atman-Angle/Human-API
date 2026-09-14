@@ -1,3 +1,4 @@
+import { DatabaseSync } from "node:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { dirname } from "node:path";
 import type { EvidenceMission, Investigation, MaintenanceRun } from "@human-api/contracts";
@@ -16,6 +17,7 @@ export interface InvestigationRepository {
   listMaintenanceRuns(investigationId: string): MaintenanceRun[];
   saveProposal(proposal: InvestigationProposal): void;
   getProposal(id: string): InvestigationProposal | undefined;
+  reset(): void;
 }
 export class InMemoryInvestigationRepository implements InvestigationRepository {
   protected readonly investigations = new Map<string, Investigation>();
@@ -58,7 +60,129 @@ export class InMemoryInvestigationRepository implements InvestigationRepository 
   getProposal(id: string) {
     return this.proposals.get(id);
   }
+  reset() {
+    this.investigations.clear();
+    this.maintenanceRuns.clear();
+    this.proposals.clear();
+  }
 }
+export interface SqliteInvestigationRepositoryOptions {
+  legacyJsonPath?: string;
+}
+
+/**
+ * SQLite-backed persistence for the existing repository aggregate boundary.
+ *
+ * The payload remains the Contract-shaped aggregate JSON. SQLite owns durable
+ * storage, indexing by id, transactions, and restart safety; it does not make
+ * domain decisions or introduce a second DTO/state authority.
+ */
+export class SqliteInvestigationRepository extends InMemoryInvestigationRepository {
+  private readonly database: DatabaseSync;
+
+  constructor(filePath: string, options: SqliteInvestigationRepositoryOptions = {}) {
+    super();
+    if (filePath !== ":memory:") mkdirSync(dirname(filePath), { recursive: true });
+    this.database = new DatabaseSync(filePath);
+    this.database.exec(`
+      PRAGMA busy_timeout = 5000;
+      PRAGMA journal_mode = WAL;
+      CREATE TABLE IF NOT EXISTS repository_records (
+        kind TEXT NOT NULL,
+        id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        PRIMARY KEY (kind, id)
+      ) WITHOUT ROWID;
+    `);
+    this.load();
+    if (this.isEmpty() && options.legacyJsonPath && existsSync(options.legacyJsonPath)) {
+      this.importLegacyJson(options.legacyJsonPath);
+    }
+  }
+
+  private load() {
+    const rows = this.database
+      .prepare("SELECT kind, id, payload FROM repository_records")
+      .all() as Array<{ kind: string; id: string; payload: string }>;
+    for (const row of rows) {
+      const value = JSON.parse(row.payload) as
+        Investigation | InvestigationProposal | MaintenanceRun;
+      if (row.kind === "investigation") this.investigations.set(row.id, value as Investigation);
+      if (row.kind === "proposal") this.proposals.set(row.id, value as InvestigationProposal);
+      if (row.kind === "maintenance_run") this.maintenanceRuns.set(row.id, value as MaintenanceRun);
+    }
+  }
+
+  private isEmpty() {
+    return (
+      this.investigations.size === 0 && this.proposals.size === 0 && this.maintenanceRuns.size === 0
+    );
+  }
+
+  private upsert(kind: string, id: string, value: unknown) {
+    this.database
+      .prepare(
+        `INSERT INTO repository_records (kind, id, payload) VALUES (?, ?, ?)
+         ON CONFLICT (kind, id) DO UPDATE SET payload = excluded.payload`,
+      )
+      .run(kind, id, JSON.stringify(value));
+  }
+
+  private importLegacyJson(filePath: string) {
+    const parsed = JSON.parse(readFileSync(filePath, "utf8")) as
+      | {
+          investigations?: Investigation[];
+          proposals?: InvestigationProposal[];
+          maintenanceRuns?: MaintenanceRun[];
+        }
+      | Investigation[];
+    const data = Array.isArray(parsed) ? { investigations: parsed } : parsed;
+    this.database.exec("BEGIN");
+    try {
+      for (const investigation of data.investigations ?? []) {
+        super.save(investigation);
+        this.upsert("investigation", investigation.id, investigation);
+      }
+      for (const proposal of data.proposals ?? []) {
+        super.saveProposal(proposal);
+        this.upsert("proposal", proposal.id, proposal);
+      }
+      for (const run of data.maintenanceRuns ?? []) {
+        super.saveMaintenanceRun(run);
+        this.upsert("maintenance_run", run.runId, run);
+      }
+      this.database.exec("COMMIT");
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  override save(i: Investigation) {
+    super.save(i);
+    this.upsert("investigation", i.id, i);
+  }
+
+  override saveProposal(proposal: InvestigationProposal) {
+    super.saveProposal(proposal);
+    this.upsert("proposal", proposal.id, proposal);
+  }
+
+  override saveMaintenanceRun(run: MaintenanceRun) {
+    super.saveMaintenanceRun(run);
+    this.upsert("maintenance_run", run.runId, run);
+  }
+
+  override reset() {
+    super.reset();
+    this.database.exec("DELETE FROM repository_records");
+  }
+
+  close() {
+    this.database.close();
+  }
+}
+
 export class JsonInvestigationRepository extends InMemoryInvestigationRepository {
   constructor(private readonly filePath: string) {
     super();
@@ -101,6 +225,10 @@ export class JsonInvestigationRepository extends InMemoryInvestigationRepository
   }
   override saveProposal(proposal: InvestigationProposal) {
     super.saveProposal(proposal);
+    this.persist();
+  }
+  override reset() {
+    super.reset();
     this.persist();
   }
   override saveMaintenanceRun(run: MaintenanceRun) {

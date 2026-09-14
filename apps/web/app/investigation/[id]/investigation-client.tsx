@@ -11,7 +11,13 @@ import type {
   Investigation,
   KnowledgeStateStatus,
 } from "@human-api/contracts";
-import { getMockInvestigation, submitMockEvidence } from "@/lib/mock-data";
+import { getMockInvestigation } from "@/lib/mock-data";
+import {
+  getInvestigation,
+  submitEvidence,
+  createMission,
+  organizeDiscussion,
+} from "@/lib/api-client";
 import { AppHeader, InvestigationView, MissionDrawer, getClientErrorMessage } from "@/app/page";
 
 export default function InvestigationClient({ investigationId }: { investigationId: string }) {
@@ -31,17 +37,50 @@ export default function InvestigationClient({ investigationId }: { investigation
 
   useEffect(() => {
     let cancelled = false;
-    const result = getMockInvestigation(investigationId);
-    window.setTimeout(() => {
-      if (cancelled) return;
-      if (result) setInvestigation(structuredClone(result));
-      else setPageError("没有找到对应的 Mock Investigation。");
-      setLoading(false);
-    }, 320);
+
+    getInvestigation(investigationId)
+      .then((result) => {
+        if (!cancelled) setInvestigation(result);
+      })
+      .catch(() => {
+        const result = getMockInvestigation(investigationId);
+        if (!cancelled) {
+          if (result) setInvestigation(structuredClone(result));
+          else setPageError("没有找到对应的求证。");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, [investigationId]);
+
+  async function handleOrganizeDiscussion(discussionId: string) {
+    if (!investigation) return;
+    setMissionError(null);
+    try {
+      const discussion = investigation.discussions.find((item) => item.id === discussionId);
+      if (!discussion) return;
+      const organization = await organizeDiscussion(discussion);
+      setInvestigation((current) =>
+        current
+          ? {
+              ...current,
+              discussionOrganizations: [
+                ...current.discussionOrganizations.filter(
+                  (item) => item.discussionId !== discussionId,
+                ),
+                organization,
+              ],
+            }
+          : current,
+      );
+    } catch (error) {
+      setMissionError(getClientErrorMessage(error));
+    }
+  }
 
   async function handleJoinMission() {
     if (!investigation) return;
@@ -49,7 +88,7 @@ export default function InvestigationClient({ investigationId }: { investigation
     setPageError(null);
     try {
       const gapId = investigation.evidenceState.nextGap?.id;
-      const updated = structuredClone(investigation);
+      const updated = await createMission(investigation.id, gapId);
       const existing = updated.missions.find((item) => item.evidenceGapId === gapId);
       if (!existing) throw new Error("Mock Mission 创建失败。");
       setInvestigation(updated);
@@ -70,7 +109,7 @@ export default function InvestigationClient({ investigationId }: { investigation
     const before = investigation.knowledgeState.status;
     const existingIds = new Set(investigation.evidence.map((item) => item.id));
     try {
-      const result = submitMockEvidence(investigation, activeMission, submission);
+      const result = await submitEvidence(activeMission.id, submission);
       const record =
         result.record ??
         [...result.investigation.evidence].reverse().find((item) => !existingIds.has(item.id));
@@ -140,9 +179,21 @@ export default function InvestigationClient({ investigationId }: { investigation
         onMyInvestigations={() => router.push("/#mine")}
         activeNav="home"
       />
+      <div className="knowledge-object-link-bar">
+        <span>查看 Knowledge Object 服务端投影</span>
+        <button
+          className="quiet-button"
+          type="button"
+          onClick={() => router.push(`/knowledge-object/${encodeURIComponent(investigation.id)}`)}
+        >
+          打开 Knowledge Object
+        </button>
+      </div>
+      `r`n{" "}
       <InvestigationView
         investigation={investigation}
         onJoin={handleJoinMission}
+        onOrganizeDiscussion={handleOrganizeDiscussion}
         creatingMission={creatingMission}
         outcome={outcome}
         onDismissOutcome={() => setOutcome(null)}

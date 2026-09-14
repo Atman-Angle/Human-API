@@ -279,6 +279,79 @@ export const ReEvaluationSchema = z.object({
 });
 export type ReEvaluation = z.infer<typeof ReEvaluationSchema>;
 
+export const DiscussionClassificationSchema = z.enum([
+  "OPINION",
+  "CLAIM_CANDIDATE",
+  "OBSERVATION",
+  "COUNTEREXAMPLE",
+  "LIMITATION",
+  "EVIDENCE_GAP",
+]);
+export type DiscussionClassification = z.infer<typeof DiscussionClassificationSchema>;
+export const DiscussionInputSchema = z
+  .object({
+    id: z.string().min(1),
+    knowledgeObjectId: z.string().min(1).optional(),
+    investigationId: z.string().min(1).optional(),
+    content: z.string().min(1),
+    authorLabel: z.string().min(1).optional(),
+    authorId: z.string().min(1).optional(),
+    createdAt: z.string().datetime(),
+    source: z.string().min(1),
+  })
+  .refine((v) => v.knowledgeObjectId || v.investigationId, {
+    message: "knowledgeObjectId or investigationId is required",
+  });
+export type DiscussionInput = z.infer<typeof DiscussionInputSchema>;
+export const DiscussionOrganizationSchema = z.object({
+  discussionId: z.string().min(1),
+  routing: z
+    .object({
+      knowledgeObjectId: z.string().min(1).optional(),
+      confidence: z.number().min(0).max(1),
+      uncertain: z.boolean(),
+      rationale: z.string().min(1),
+    })
+    .optional(),
+  classifications: z.array(
+    z.object({
+      label: DiscussionClassificationSchema,
+      text: z.string().min(1),
+      rationale: z.string().min(1),
+    }),
+  ),
+  claims: z.array(ClaimAssessmentSchema),
+  gaps: z.array(EvidenceGapSchema),
+  limitations: z.array(z.string()),
+  relations: z
+    .array(
+      z.object({
+        claimId: z.string().min(1),
+        relation: z.enum(["SUPPORTS", "CHALLENGES", "LIMITS", "OPENS_QUESTION"]),
+        rationale: z.string().min(1),
+      }),
+    )
+    .default([]),
+  summary: z.string().min(1).optional(),
+  missionRecommended: z.boolean().optional(),
+  recommendedMissionGapId: z.string().optional(),
+});
+export type DiscussionOrganization = z.infer<typeof DiscussionOrganizationSchema>;
+export const LLMProvenanceSchema = z.enum(["LIVE", "CACHE", "GOLDEN_FIXTURE"]);
+export const LLMRunSchema = z.object({
+  runId: z.string().min(1),
+  agentAction: z.string().min(1),
+  inputRefs: z.array(z.string()),
+  model: z.string().min(1),
+  provenance: LLMProvenanceSchema,
+  status: z.enum(["SUCCEEDED", "FALLBACK", "FAILED"]),
+  structuredOutput: z.unknown(),
+  limitations: z.array(z.string()),
+  createdAt: z.string().datetime(),
+  fallbackReason: z.string().optional(),
+});
+export type LLMRun = z.infer<typeof LLMRunSchema>;
+
 export const InvestigationSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
@@ -292,6 +365,9 @@ export const InvestigationSchema = z.object({
   evidence: z.array(EvidenceRecordSchema),
   knowledgeState: KnowledgeStateSchema,
   reevaluation: ReEvaluationSchema.optional(),
+  discussions: z.array(DiscussionInputSchema).default([]),
+  discussionOrganizations: z.array(DiscussionOrganizationSchema).default([]),
+  llmRuns: z.array(LLMRunSchema).default([]),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -318,6 +394,10 @@ export const ApiErrorSchema = z.object({
       "UPSTREAM_UNAVAILABLE",
       "UPSTREAM_ERROR",
       "AUTH_REQUIRED",
+      "LLM_TIMEOUT",
+      "LLM_RATE_LIMIT",
+      "LLM_INVALID_RESPONSE",
+      "LLM_UPSTREAM_UNAVAILABLE",
       "INTERNAL_ERROR",
     ]),
     message: z.string(),

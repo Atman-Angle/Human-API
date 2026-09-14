@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev:web": "npm run dev --workspace @human-api/web",
+    "dev:api": "tsx apps/api/src/server.ts",
     "lint": "npm run lint:api && npm run lint:web",
     "lint:api": "eslint .",
     "lint:web": "npm run lint --workspace @human-api/web",

@@ -37,9 +37,13 @@ import type {
   SearchProvenance,
   SourceRef,
 } from "@human-api/contracts";
-import { ApiClientError } from "@/lib/api-client";
 import {
-  createMockInvestigation,
+  ApiClientError,
+  createInvestigation,
+  listInvestigations,
+  listMissions,
+} from "@/lib/api-client";
+import {
   listMockContributions,
   listMockInvestigations,
   mockInvestigationToListItem,
@@ -634,7 +638,9 @@ export function MissionDrawer({
       >
         <header className="drawer-header">
           <div>
-            <span className="drawer-kicker">真人求证任务</span>
+            <span className="drawer-kicker">
+              真人求证任务 · {mission.status === "OPEN" ? "OPEN · 可参与" : "CLOSED · 已关闭"}
+            </span>
             <h2 id="mission-title">{mission.title}</h2>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭任务">
@@ -651,6 +657,12 @@ export function MissionDrawer({
             <Clock3 size={15} />
             只需记录一次真实经历，不需要写完整答案
           </div>
+          {mission.status === "CLOSED" ? (
+            <div className="form-error" role="status">
+              <CircleAlert size={16} />
+              这个 Mission 已关闭，暂时不能提交新的 Evidence。
+            </div>
+          ) : null}
 
           <form className="evidence-form" onSubmit={handleSubmit}>
             <label className="field-label">
@@ -750,7 +762,11 @@ export function MissionDrawer({
               <span>
                 <ShieldCheck size={15} /> 系统将校验相关性并给出 Evidence Grade
               </span>
-              <button className="primary-button" type="submit" disabled={!valid || submitting}>
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={!valid || submitting || mission.status === "CLOSED"}
+              >
                 {submitting ? <LoaderCircle className="spin" size={18} /> : <Send size={17} />}
                 {submitting ? "正在评估" : "提交真实经历"}
               </button>
@@ -984,10 +1000,18 @@ export function MyInvestigationsConsole({
   items,
   onOpen,
   onClose,
+  missions = [],
 }: {
   items: MockFeedItem[];
   onOpen: (id: string) => void;
   onClose: () => void;
+  missions?: Array<{
+    id: string;
+    investigationId: string;
+    title: string;
+    status: "OPEN" | "CLOSED";
+    evidenceCount: number;
+  }>;
 }) {
   const evidenceCount = items.reduce((sum, item) => sum + item.evidenceCount, 0);
   const firstHandCount = items.reduce((sum, item) => sum + item.firstHandCount, 0);
@@ -1046,6 +1070,31 @@ export function MyInvestigationsConsole({
             </div>
           </section>
           <section className="console-section">
+            <h2>正在进行的 Mission</h2>
+            {missions.length === 0 ? (
+              <p className="empty-state">当前没有开放的证据缺口任务。</p>
+            ) : null}
+            <div className="console-list">
+              {missions.map((mission) => (
+                <button
+                  className="console-row"
+                  type="button"
+                  key={mission.id}
+                  onClick={() => onOpen(mission.investigationId)}
+                >
+                  <div>
+                    <h3>{mission.title}</h3>
+                    <p>
+                      OPEN · {mission.evidenceCount} 条 Evidence · 来自当前 Knowledge Object
+                      的证据缺口
+                    </p>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="console-section">
             <h2>我的贡献</h2>
             <div className="console-list">
               {items.flatMap((item) =>
@@ -1079,12 +1128,14 @@ export function MyInvestigationsConsole({
 export function InvestigationView({
   investigation,
   onJoin,
+  onOrganizeDiscussion,
   creatingMission,
   outcome,
   onDismissOutcome,
 }: {
   investigation: Investigation;
   onJoin: () => void;
+  onOrganizeDiscussion: (discussionId: string) => void;
   creatingMission: boolean;
   outcome: { record: EvidenceRecord; receipt?: ImpactReceipt; before: KnowledgeStateStatus } | null;
   onDismissOutcome: () => void;
@@ -1184,6 +1235,72 @@ export function InvestigationView({
           />
         ) : null}
 
+        {investigation.discussionOrganizations.length > 0 ? (
+          <section className="content-section organization-section">
+            <div className="section-heading">
+              <span className="section-icon known">
+                <Bot size={16} />
+              </span>
+              <div>
+                <h2>Agent 组织结果</h2>
+                <p>基于讨论生成的分类、主张关系与证据缺口</p>
+              </div>
+            </div>
+            <div className="organization-list">
+              {investigation.discussionOrganizations.map((organization) => (
+                <article className="organization-item" key={organization.discussionId}>
+                  {organization.summary ? <p>{organization.summary}</p> : null}
+                  <div className="organization-tags">
+                    {organization.classifications.map((item) => (
+                      <span key={`${organization.discussionId}-${item.label}`}>{item.label}</span>
+                    ))}
+                  </div>
+                  {organization.missionRecommended ? (
+                    <small>Agent 建议围绕当前 Evidence Gap 发起 Mission</small>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {investigation.discussions.length > 0 ? (
+          <section className="content-section discussion-section">
+            <div className="section-heading">
+              <span className="section-icon known">
+                <MessageCircle size={16} />
+              </span>
+              <div>
+                <h2>人类讨论</h2>
+                <p>来自参与者的原始经验与分歧；Agent 组织结果见下方</p>
+              </div>
+            </div>
+            <div className="discussion-list">
+              {investigation.discussions.map((discussion, index) => (
+                <article
+                  className="discussion-item"
+                  key={`${discussion.authorLabel ?? "discussion"}-${index}`}
+                >
+                  <strong>{discussion.authorLabel ?? "社区参与者"}</strong>
+                  <p>{discussion.content}</p>
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => onOrganizeDiscussion(discussion.id)}
+                  >
+                    让 Agent 组织这条讨论
+                  </button>
+                  <small>
+                    {discussion.createdAt
+                      ? new Date(discussion.createdAt).toLocaleString("zh-CN")
+                      : "讨论内容"}
+                  </small>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <div className="workspace-grid">
           <div className="evidence-column">
             <section className="content-section overview-section">
@@ -1269,7 +1386,8 @@ export function InvestigationView({
                 <div>
                   <h2>检索来源</h2>
                   <p>
-                    {provenanceLabels[investigation.searches.zhihu.provenance]} · 知乎与全网分开呈现
+                    知乎：{provenanceLabels[investigation.searches.zhihu.provenance]} · 全网：
+                    {provenanceLabels[investigation.searches.global.provenance]}
                   </p>
                 </div>
               </div>
@@ -1324,6 +1442,55 @@ export default function HomePage() {
   const [investigations, setInvestigations] = useState<MockFeedItem[]>(() =>
     listMockInvestigations(),
   );
+  const [loadingInvestigations, setLoadingInvestigations] = useState(true);
+  const [missions, setMissions] = useState<
+    Array<{
+      id: string;
+      investigationId: string;
+      title: string;
+      status: "OPEN" | "CLOSED";
+      evidenceCount: number;
+    }>
+  >([]);
+
+  useEffect(() => {
+    let active = true;
+    listMissions()
+      .then((items) => {
+        if (active) setMissions(items);
+      })
+      .catch(() => {
+        if (active) setMissions([]);
+      });
+    listInvestigations()
+      .then((items) => {
+        if (!active) return;
+        setInvestigations(
+          items.map((item) => ({
+            ...item,
+            author: "Human Gateway Community",
+            excerpt: "持续演化的 Knowledge Object",
+            discussionCount: 0,
+            firstHandCount: item.evidenceCount,
+            topic: "AI Coding Circle",
+            claims: [],
+            conflictText: "查看当前分歧与限制",
+            gapText: "查看当前 Evidence Gap",
+          })),
+        );
+        setPageError(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setPageError(getClientErrorMessage(error));
+      })
+      .finally(() => {
+        if (active) setLoadingInvestigations(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [showComposer, setShowComposer] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
   const [activeNav, setActiveNav] = useState<"home" | "search" | "mine">("home");
@@ -1373,7 +1540,7 @@ export default function HomePage() {
     setAskSession((current) => current + 1);
     setPageError(null);
     try {
-      const created = createMockInvestigation(trimmedQuestion);
+      const created = await createInvestigation(trimmedQuestion);
       setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
       router.push(`/investigation/${encodeURIComponent(created.id)}`);
     } catch (error) {
@@ -1394,8 +1561,8 @@ export default function HomePage() {
       />
       <FeedHome
         items={investigations}
-        loading={false}
-        error={null}
+        loading={loadingInvestigations}
+        error={pageError}
         onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
         onAsk={() => setPanel("search")}
         onMine={() => setPanel("mine")}
@@ -1421,6 +1588,7 @@ export default function HomePage() {
             router.push(`/investigation/${encodeURIComponent(id)}`);
           }}
           onClose={() => setPanel("home")}
+          missions={missions}
         />
       ) : null}
     </div>

@@ -3,12 +3,17 @@ import {
   EvidenceRecordSchema,
   ImpactReceiptSchema,
   InvestigationListItemSchema,
+  MissionListItemSchema,
+  DiscussionOrganizationSchema,
   InvestigationResponseSchema,
   type EvidenceSubmission,
   type EvidenceRecord,
   type ImpactReceipt,
   type InvestigationListItem,
   type Investigation,
+  type MissionListItem,
+  type DiscussionInput,
+  type DiscussionOrganization,
 } from "@human-api/contracts";
 
 const API_BASE_URL =
@@ -98,6 +103,67 @@ export async function listInvestigations(): Promise<InvestigationListItem[]> {
     throw new ApiClientError("服务返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
   }
   return parsed.map((item) => item.data) as InvestigationListItem[];
+}
+
+export async function listMissions(status: "OPEN" | "CLOSED" = "OPEN"): Promise<MissionListItem[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/missions?status=${status}`, { cache: "no-store" });
+  } catch {
+    throw new ApiClientError("无法连接求证服务，请确认后端已启动。", "UPSTREAM_UNAVAILABLE", true);
+  }
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsedError = ApiErrorSchema.safeParse(body);
+    if (parsedError.success) {
+      const { code, message, retryable, requestId } = parsedError.data.error;
+      throw new ApiClientError(message, code, retryable, requestId);
+    }
+    throw new ApiClientError(`请求失败（HTTP ${response.status}）`);
+  }
+  if (!Array.isArray(body))
+    throw new ApiClientError("服务返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  const parsed = body.map((item) => MissionListItemSchema.safeParse(item));
+  if (parsed.some((item) => !item.success))
+    throw new ApiClientError("服务返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  return parsed.map((item) => item.data) as MissionListItem[];
+}
+
+export async function organizeDiscussion(input: DiscussionInput): Promise<DiscussionOrganization> {
+  const response = await fetch(`${API_BASE_URL}/api/discussions/organize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsedError = ApiErrorSchema.safeParse(body);
+    if (parsedError.success) {
+      const { code, message, retryable, requestId } = parsedError.data.error;
+      throw new ApiClientError(message, code, retryable, requestId);
+    }
+    throw new ApiClientError(`请求失败（HTTP ${response.status}）`);
+  }
+  const parsed = DiscussionOrganizationSchema.safeParse(body);
+  if (!parsed.success)
+    throw new ApiClientError("服务返回的数据结构不符合当前 Contract。", "INVALID_RESPONSE");
+  return parsed.data;
+}
+
+export async function getMission(missionId: string): Promise<unknown> {
+  const response = await fetch(`${API_BASE_URL}/api/missions/${encodeURIComponent(missionId)}`, {
+    cache: "no-store",
+  });
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsedError = ApiErrorSchema.safeParse(body);
+    if (parsedError.success) {
+      const { code, message, retryable, requestId } = parsedError.data.error;
+      throw new ApiClientError(message, code, retryable, requestId);
+    }
+    throw new ApiClientError(`请求失败（HTTP ${response.status}）`);
+  }
+  return body;
 }
 
 export function createMission(investigationId: string, gapId?: string): Promise<Investigation> {

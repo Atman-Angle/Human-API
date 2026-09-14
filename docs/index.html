@@ -1,371 +1,1160 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/><title>Human Gateway · Knowledge Object Demo</title><style>
-
-:root{--bg:#f5f7fa;--card:#fff;--ink:#18191c;--sub:#5f6772;--muted:#9299a3;--line:#e8ebef;--blue:#1772f6;--blue-soft:#eaf3ff;--blue-dark:#0d5dcc;--green:#168a5b;--green-soft:#eaf8f1;--amber:#b97816;--amber-soft:#fff6e5;--red:#d94a45;--red-soft:#fff1f0;--purple:#7c3aed;--purple-soft:#f3eeff;--cyan:#0a8f8f;--cyan-soft:#e6f7f7;--radius:8px;--radius-lg:12px;--shadow:0 14px 40px rgba(23,42,70,.07);--shadow-sm:0 2px 8px rgba(23,42,70,.05);font-family:Inter,'PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif}
-*{box-sizing:border-box}
-body{margin:0;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
-button,input,textarea,select{font:inherit}
-button{cursor:pointer}
-a{color:var(--blue);text-decoration:none}
-a:hover{text-decoration:underline}
-.shell{width:min(960px,calc(100% - 32px));margin:0 auto}
-.topbar{height:60px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:100;backdrop-filter:blur(6px)}
-.topbar-inner{display:flex;align-items:center;justify-content:space-between;height:100%}
-.brand{display:inline-flex;align-items:center;gap:10px;font-weight:750;font-size:17px}
-.mark{display:grid;width:30px;height:30px;place-items:center;color:#fff;background:var(--blue);border-radius:8px;font-size:15px;font-weight:700}
-.brand small{padding:3px 8px;color:var(--blue-dark);background:var(--blue-soft);border-radius:4px;font-size:11px;font-weight:600}
-.topbar-right{display:flex;align-items:center;gap:12px}
-.provenance-badge{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-soft);border-radius:20px;font-size:11px;font-weight:600;color:var(--green)}
-.provenance-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
-main{padding:32px 0 80px}
-.ko-header{padding:28px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
-.ko-breadcrumb{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:12px}
-.ko-title{font-size:clamp(22px,3vw,30px);font-weight:750;letter-spacing:-.03em;line-height:1.2;margin:0 0 10px}
-.ko-meta{display:flex;flex-wrap:wrap;gap:20px;font-size:13px;color:var(--sub)}
-.ko-meta-item{display:flex;align-items:center;gap:6px}
-.ko-meta-item strong{color:var(--ink);font-weight:600}
-.status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
-.status-badge.unresolved{background:var(--amber-soft);color:var(--amber)}
-.status-badge.early-evidence{background:var(--blue-soft);color:var(--blue)}
-.status-badge.supported{background:var(--green-soft);color:var(--green)}
-.section{margin-top:24px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.section-header h2{margin:0;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
-.section-header h2 .icon{display:grid;width:24px;height:24px;place-items:center;border-radius:6px;font-size:13px}
-.section-header .count{padding:1px 8px;background:var(--line);border-radius:10px;font-size:11px;font-weight:600;color:var(--sub)}
-
-
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:700px){.two-col{grid-template-columns:1fr}}
-.card{padding:20px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
-.card h3{margin:0 0 8px;font-size:14px;font-weight:650}
-.card p{margin:0;font-size:13px;line-height:1.7;color:var(--sub)}
-.card-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.claim-item{padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px}
-.claim-item:last-child{margin-bottom:0}
-.claim-text{font-size:14px;line-height:1.6;font-weight:500}
-.claim-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted);margin-top:8px}
-.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
-.tag.blue{background:var(--blue-soft);color:var(--blue)}
-.tag.green{background:var(--green-soft);color:var(--green)}
-.tag.amber{background:var(--amber-soft);color:var(--amber)}
-.tag.red{background:var(--red-soft);color:var(--red)}
-.tag.purple{background:var(--purple-soft);color:var(--purple)}
-.tag.cyan{background:var(--cyan-soft);color:var(--cyan)}
-.tag.muted{background:#f0f2f5;color:var(--sub)}
-.mission-card{padding:18px 20px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s}
-.mission-card:hover{border-color:var(--blue);box-shadow:var(--shadow)}
-.mission-card h4{margin:0 0 6px;font-size:15px;font-weight:650}
-.mission-card .mission-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.mission-card .mission-desc{font-size:13px;color:var(--sub);line-height:1.7}
-.mission-card .mission-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px}
-.form-group label .required{color:var(--red);margin-left:2px}
-textarea,input,select{width:100%;padding:10px 12px;color:var(--ink);background:#fff;border:1px solid #dce1e7;border-radius:6px;outline:0;transition:border-color .15s}
-textarea:focus,input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-soft)}
-textarea{resize:vertical;min-height:64px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:1px solid transparent;border-radius:6px;font-size:13px;font-weight:600;transition:all .12s;white-space:nowrap}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{color:#fff;background:var(--blue)}
-.btn-primary:hover:not(:disabled){background:var(--blue-dark)}
-.btn-outline{color:var(--sub);background:transparent;border-color:var(--line)}
-.btn-outline:hover:not(:disabled){border-color:var(--muted);background:#f8f9fb}
-.btn-success{color:#fff;background:var(--green)}
-.btn-success:hover:not(:disabled){background:#126e49}
-.btn-sm{padding:6px 12px;font-size:12px}
-.timeline{position:relative;padding-left:24px}
-.timeline::before{content:'';position:absolute;left:9px;top:4px;bottom:4px;width:2px;background:var(--line)}
-.tl-item{position:relative;margin-bottom:16px;padding-left:16px}
-.tl-item::before{content:'';position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--card);border:2px solid var(--muted)}
-.tl-item.done::before{background:var(--green);border-color:var(--green)}
-.tl-item.active::before{background:var(--blue);border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
-.tl-item .tl-label{font-size:12px;font-weight:600;color:var(--sub)}
-.tl-item .tl-desc{font-size:12px;color:var(--muted);margin-top:2px}
-
-
-.receipt{background:linear-gradient(135deg,var(--green-soft),#f0faf5);border:1px solid #c8e6d9;border-radius:var(--radius-lg);padding:24px}
-.receipt-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.receipt-icon{display:grid;width:44px;height:44px;place-items:center;background:var(--green);border-radius:50%;color:#fff;font-size:20px}
-.receipt-header h3{margin:0;font-size:16px;font-weight:700}
-.receipt-header p{margin:2px 0 0;font-size:13px;color:var(--sub)}
-.receipt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:500px){.receipt-grid{grid-template-columns:1fr}}
-.receipt-field{padding:12px;background:rgba(255,255,255,.7);border-radius:var(--radius)}
-.receipt-field .rf-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-.receipt-field .rf-value{font-size:13px;font-weight:600;line-height:1.5}
-.state-delta{display:flex;align-items:center;gap:12px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
-.state-box{padding:8px 16px;border-radius:var(--radius);text-align:center}
-.state-box .s-label{font-size:11px;color:var(--muted)}
-.state-box .s-value{font-size:15px;font-weight:700;margin-top:2px}
-.state-arrow{font-size:20px;color:var(--muted)}
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:20px}
-.tab{padding:10px 18px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;transition:all .12s}
-.tab:hover{color:var(--ink)}
-.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
-.loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:32px;color:var(--muted);font-size:13px}
-.spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.provenance-note{display:flex;align-items:flex-start;gap:8px;padding:10px 14px;background:var(--amber-soft);border-radius:var(--radius);font-size:12px;color:#7a5a10;margin-top:12px;line-height:1.6}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
-.overlay.open{display:flex}
-.modal{width:min(580px,100%);max-height:90vh;overflow-y:auto;background:var(--card);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.2);padding:28px}
-.modal-close{float:right;border:none;background:none;font-size:22px;color:var(--muted);padding:0;line-height:1}
-.modal-close:hover{color:var(--ink)}
-.discussion-item{padding:14px 0;border-bottom:1px solid var(--line)}
-.discussion-item:last-child{border-bottom:none}
-.discussion-item .d-author{font-size:12px;font-weight:600;margin-bottom:4px}
-.discussion-item .d-text{font-size:13px;line-height:1.7;color:var(--sub)}
-.discussion-item .d-type{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;margin-right:6px}
-.d-type.opinion{background:var(--amber-soft);color:var(--amber)}
-.d-type.observation{background:var(--green-soft);color:var(--green)}
-.d-type.claim{background:var(--blue-soft);color:var(--blue)}
-.d-type.counterexample{background:var(--red-soft);color:var(--red)}
-.d-type.limitation{background:var(--purple-soft);color:var(--purple)}
-.empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
-.empty-state .e-icon{font-size:36px;margin-bottom:12px}
-.empty-state p{font-size:13px;line-height:1.7;margin:0}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fadeInUp .3s ease-out}
-@media(max-width:600px){.ko-header{padding:20px}.card{padding:16px}}
-</style></head><body>
-
-
-<header class="topbar"><div class="shell topbar-inner"><div class="brand"><span class="mark">H</span>Human Gateway<small>Knowledge Object</small></div><div class="topbar-right"><div class="provenance-badge"><span class="dot"></span>Mock Data</div></div></div></header>
-<main><div class="shell">
-<div class="ko-header" id="koHeader">
-<div class="ko-breadcrumb"><a href="#">Circle</a><span class="sep">/</span><span>AI Coding</span><span class="sep">/</span><span id="koName">AI Coding 对初级开发者的影响</span></div>
-<h1 class="ko-title" id="koTitle">AI Coding 实际改变了初级开发者哪些工作？</h1>
-<div class="ko-meta">
-<div class="ko-meta-item"><span>状态</span><span class="status-badge early-evidence" id="koStatus">✦ EARLY_EVIDENCE</span></div>
-<div class="ko-meta-item"><span>Evidence 数量</span><strong id="evidenceCount">0</strong></div>
-<div class="ko-meta-item"><span>Mission 数量</span><strong id="missionCount">0</strong></div>
-<div class="ko-meta-item"><span>最后更新</span><strong id="lastUpdated">-</strong></div>
-</div></div>
-
-
-<div class="tabs" id="tabs">
-<div class="tab active" data-tab="overview">概览 (B01+B02)</div>
-<div class="tab" data-tab="missions">Mission Feed (B03)</div>
-<div class="tab" data-tab="discussions">讨论组织</div>
-</div>
-
-
-<div class="tab-content" id="tabOverview">
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--green-soft);color:var(--green);">✓</span>已知 (Known)</h2><span class="count" id="knownCount">0</span></div>
-<div id="knownClaims" class="card"><p style="color:var(--muted);">加载中...</p></div></div>
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--amber-soft);color:var(--amber);">⚡</span>争议 (Disagreements)</h2><span class="count" id="disagreementCount">0</span></div>
-<div id="disagreements" class="card"><p style="color:var(--muted);">加载中...</p></div></div>
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--purple-soft);color:var(--purple);">?</span>知识边界 (Knowledge Frontier)</h2><span class="count" id="gapCount">0</span></div>
-<div id="frontierGaps" class="card"><p style="color:var(--muted);">加载中...</p></div></div>
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--red-soft);color:var(--red);">⚠</span>限制条件 (Limitations)</h2></div>
-<div id="limitations" class="card"><p style="color:var(--muted);">加载中...</p></div></div>
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--blue-soft);color:var(--blue);">◉</span>知识状态 (Knowledge State)</h2></div>
-<div id="knowledgeStatePanel" class="card"><p style="color:var(--muted);">加载中...</p></div></div></div>
-
-
-<div class="tab-content" id="tabMissions" style="display:none;">
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--cyan-soft);color:var(--cyan);">⌂</span>可参与 Mission</h2><span class="count" id="openMissionCount">0</span></div>
-<p style="font-size:13px;color:var(--sub);margin:0 0 16px;line-height:1.7;">以下 Mission 来自 Investigation 中发现的 Evidence Gap，只展示 OPEN 状态的可参与任务。</p>
-<div id="missionFeed"></div></div></div>
-
-
-<div class="tab-content" id="tabDiscussions" style="display:none;">
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--purple-soft);color:var(--purple);">💬</span>讨论结构化组织</h2></div>
-<p style="font-size:13px;color:var(--sub);margin:0 0 16px;line-height:1.7;">Agent 从搜索和讨论中提取以下结构化内容。原始表达保留可追溯，区分 Opinion、Claim Candidate、Observation、Counterexample 与 Limitation。</p>
-<div id="discussionList"></div></div></div>
-
-
-<div class="section fade-in">
-<div class="section-header"><h2><span class="icon" style="background:var(--amber-soft);color:var(--amber);">⏱</span>Evidence Timeline</h2><span class="count" id="tlCount">0</span></div>
-<div class="timeline" id="evidenceTimeline"><p style="color:var(--muted);font-size:13px;">提交 Evidence 后会显示在这里</p></div></div>
-
-
-</div></main>
-<div class="overlay" id="missionModal">
-<div class="modal">
-<button class="modal-close" onclick="closeMissionModal()">×</button>
-<h2 style="margin:0 0 6px;font-size:18px;" id="modalMissionTitle">Mission Detail</h2>
-<p style="margin:0 0 18px;font-size:13px;color:var(--sub);line-height:1.7;" id="modalMissionDesc"></p>
-<div class="two-col" style="margin-bottom:16px;">
-<div><div class="card-label">目的</div><p style="font-size:13px;" id="modalMissionPurpose"></p></div>
-<div><div class="card-label">参与资格</div><p style="font-size:13px;" id="modalMissionQualification"></p></div>
-</div>
-<div class="card-label">Evidence 影响链</div>
-<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:18px;flex-wrap:wrap;">
-<span class="tag blue" id="modalClaimId">-</span><span style="color:var(--muted);">→</span>
-<span class="tag amber" id="modalGapId">-</span><span style="color:var(--muted);">→</span>
-<span class="tag green" id="modalMissionStatus">OPEN</span></div>
-<hr style="border:none;border-top:1px solid var(--line);margin:18px 0;"/>
-<h3 style="font-size:15px;margin:0 0 12px;">提交你的第一手经历</h3>
-<p style="font-size:12px;color:var(--sub);margin:0 0 16px;line-height:1.6;">这不是要求你写一篇完整答案。请基于你本人的真实经历，描述具体场景、AI 的角色和你自己的判断。</p>
-<form id="evidenceForm" onsubmit="submitEvidence(event)">
-
-
-<div class="form-group"><label>你与这次经历最接近的身份 <span class="required">*</span></label>
-<select id="inputParticipant" required="">
-<option value="">请选择</option>
-<option value="student_developer">学生开发者</option>
-<option value="intern">实习生</option>
-<option value="junior_developer_0_3_years">0–3 年开发者</option>
-<option value="other">其他</option></select></div>
-<div class="form-group"><label>这次经历大约发生在什么时候？ <span class="required">*</span></label>
-<select id="inputTimeframe" required="">
-<option value="">请选择</option>
-<option value="最近 24 小时">最近 24 小时</option>
-<option value="最近 7 天">最近 7 天</option>
-<option value="最近 30 天">最近 30 天</option>
-<option value="更早">更早</option></select></div>
-
-
-<div class="form-group"><label>具体发生在什么任务、步骤或场景？ <span class="required">*</span></label>
-<textarea id="inputTask" required placeholder="例如：写一个分页查询接口，AI 生成了 controller 和 DTO 的样板代码..." rows="2"></textarea></div>
-<div class="form-group"><label>当时具体发生了什么？哪一个环节发生了变化？ <span class="required">*</span></label>
-<textarea id="inputAiRole" required placeholder="例如：AI 把 CRUD 样板先写好了，我需要补业务约束和异常处理..." rows="2"></textarea></div>
-<div class="form-group"><label>你最后如何判断或处理？最终结果是什么？ <span class="required">*</span></label>
-<textarea id="inputJudgment" required placeholder="例如：我核对了数据模型的业务约束，补充了租户权限过滤，最终正常上线..." rows="2"></textarea></div>
-<div class="form-group"><label>可选：提供截图、记录链接或其他相关材料</label>
-<input type="url" id="inputArtifact" placeholder="https://..."/></div>
-<div style="display:flex;gap:10px;flex-wrap:wrap;">
-<button type="submit" class="btn btn-success" id="submitEvidenceBtn">提交 Observation</button>
-<button type="button" class="btn btn-outline" onclick="closeMissionModal()">取消</button></div>
-<div id="submitStatus" style="margin-top:12px;font-size:13px;"></div>
-</form></div></div>
-
-
-<div class="overlay" id="receiptModal">
-<div class="modal">
-<button class="modal-close" onclick="closeReceiptModal()">×</button>
-<div class="receipt">
-<div class="receipt-header"><div class="receipt-icon">✓</div><div><h3>Impact Receipt</h3><p id="receiptSubtitle">你的 Observation 已进入评估链路</p></div></div>
-<div class="receipt-grid">
-<div class="receipt-field"><div class="rf-label">结果</div><div class="rf-value" id="receiptAccepted">-</div></div>
-<div class="receipt-field"><div class="rf-label">Evidence Grade</div><div class="rf-value" id="receiptGrade">-</div></div>
-<div class="receipt-field" style="grid-column:1/-1;"><div class="rf-label">Grade 理由</div><div class="rf-value" id="receiptGradeReason" style="font-weight:400;"></div></div>
-<div class="receipt-field"><div class="rf-label">影响的 Claim</div><div class="rf-value" id="receiptClaim">-</div></div>
-<div class="receipt-field"><div class="rf-label">知识状态变化</div><div class="rf-value" id="receiptStateDelta">-</div></div>
-<div class="receipt-field" style="grid-column:1/-1;"><div class="rf-label">影响摘要</div><div class="rf-value" id="receiptSummary" style="font-weight:400;"></div></div>
-<div class="receipt-field" style="grid-column:1/-1;"><div class="rf-label">仍然缺失</div><div class="rf-value" id="receiptStillMissing" style="font-weight:400;"></div></div>
-</div></div>
-<div style="margin-top:16px;"><button class="btn btn-primary" onclick="closeReceiptModal()">继续浏览</button></div>
-</div></div>
-
-
-<script>
-const MOCK={
-KS:{UNRESOLVED:"UNRESOLVED",EARLY_EVIDENCE:"EARLY_EVIDENCE",SUPPORTED_WITH_LIMITATIONS:"SUPPORTED_WITH_LIMITATIONS"},
-EG:{E0_OPINION:"E0_OPINION",E1_FIRST_HAND:"E1_FIRST_HAND",E2_ARTIFACT_BACKED:"E2_ARTIFACT_BACKED"},
-GS:{MISSION_READY:"MISSION_READY",NEEDS_REFRAMING:"NEEDS_REFRAMING",NOT_SUITABLE_FOR_HUMAN_MISSION:"NOT_SUITABLE_FOR_HUMAN_MISSION"},
-MS:{OPEN:"OPEN",CLOSED:"CLOSED"},
-investigation:{
-id:"inv-ai-coding-001",
-question:"AI Coding 实际改变了初级开发者哪些工作？",
-searches:{zhihu:{query:"...",provider:"ZHIHU",provenance:"GOLDEN_FIXTURE",items:[],hasMore:false,retrievedAt:"2026-09-13T04:07:29.561Z",limitations:["Fixtures"]},global:{query:"...",provider:"GLOBAL",provenance:"GOLDEN_FIXTURE",items:[],hasMore:false,retrievedAt:"2026-09-13T04:07:29.561Z",limitations:["Fixtures"]}},
-evidenceState:{
-known:["AI Coding 工具（Copilot, Cursor, Claude Code 等）正在改变初级开发者的日常工作模式","初级开发者从自己写全部代码转向审查和修复 AI 生成的代码","AI 擅长典型场景和 happy-path，但边界条件、安全约束和业务异常处理需要人工补充"],
-disagreements:["AI 是让初级开发者学得更快还是学得更浅存在争议","AI 节省的时间是用于更高质量的工作，还是被更多任务填满，观点不一"],
-
-
-supported:[{id:"claim-001",claim:"AI Coding 将初级开发者的角色从代码生产者转变为代码审查者加边界条件专家",rationale:"多位 0-3 年开发者报告工作模式转变",sourceRefIds:[],evidenceIds:["ev-001","ev-002","ev-005"]},{id:"claim-002",claim:"AI 生成的代码以 happy-path 为主，业务约束和异常处理常被遗漏",rationale:"多位参与者报告边界条件被遗漏",sourceRefIds:[],evidenceIds:["ev-002","ev-005"]}],
-unsupported:[{id:"claim-003",claim:"AI Coding 工具导致初级开发者基础技能退化",rationale:"有观点认为 AI 包办了基础编码和调试",sourceRefIds:[],evidenceIds:[]}],
-limitations:["当前结论来自搜索摘要和少量第一手观察","当前样本规模有限不能外推为行业总体比例"],
-
-
-candidateGap:{id:"gap-001",claim:"AI Coding 改变了初级开发者哪些工作？",affectedClaim:"角色从代码生产者转变为审查者",affectedClaimId:"claim-001",whyUnresolved:"缺少具体到哪些任务交给 AI 的细节",missingObservation:"哪些过去自己完成的任务现在交给 AI？人仍在哪一步承担最终判断？",targetParticipants:["学生开发者","实习生","0-3 年开发者"],expectedValue:"明确 AI 接管了哪些具体任务类型"},
-gapSuitability:{status:"MISSION_READY",singleObservation:true,lowHumanCost:true,decisionImpact:true,prevalenceRisk:false,standardizedMeasurementDependency:false,reason:"该 Gap 适合单人描述具体任务变化，不需要统计样本"},
-nextGap:{id:"gap-002",claim:"AI Coding 改变了初级开发者哪些工作？",affectedClaim:"AI 生成的代码以 happy-path 为主",affectedClaimId:"claim-002",whyUnresolved:"缺少具体案例说明哪些边界最易被遗漏",missingObservation:"AI 生成的代码遗漏了哪些你预期它会处理的情况？",targetParticipants:["学生开发者","实习生","0-3 年开发者"],expectedValue:"分类记录 AI 代码常见遗漏模式"}
-},
-actions:["SEARCH_ZHIHU","SEARCH_WEB","ASSESS_EVIDENCE","ASSESS_GAP_SUITABILITY","CREATE_MISSION","STOP"],
-
-
-missions:[{id:"mission-gap-001",investigationId:"inv-ai-coding-001",evidenceGapId:"gap-001",title:"你的工作模式被 AI Coding 改变了吗？",description:"我们想了解最近持续使用 AI Coding 的学生、实习生或 0-3 年开发者，哪些任务现在主要交给 AI？",qualification:["学生开发者","实习生","0-3 年开发者"],fields:[{id:"participantType",kind:"SINGLE_SELECT",prompt:"身份",options:["学生开发者","实习生","0-3 年开发者","其他"],required:true},{id:"timeframe",kind:"SINGLE_SELECT",prompt:"时间",options:["最近24小时","最近7天","最近30天","更早"],required:true},{id:"task",kind:"SHORT_TEXT",prompt:"具体任务？",required:true},{id:"aiRole",kind:"SHORT_TEXT",prompt:"AI 做了什么？",required:true},{id:"humanJudgment",kind:"SHORT_TEXT",prompt:"你的判断？",required:true},{id:"artifactUrl",kind:"URL",prompt:"材料链接",required:false}],status:"OPEN",estimatedSeconds:50,createdAt:"2026-09-13T04:07:29.561Z",updatedAt:"2026-09-13T04:07:29.561Z"},
-
-
-{id:"mission-gap-002",investigationId:"inv-ai-coding-001",evidenceGapId:"gap-002",title:"AI 生成的代码遗漏了什么？",description:"我们想了解 AI 生成的代码遗漏了哪些你预期它会处理的情况？你是怎么发现的？",qualification:["学生开发者","实习生","0-3 年开发者"],fields:[{id:"participantType",kind:"SINGLE_SELECT",prompt:"身份",options:["学生开发者","实习生","0-3 年开发者","其他"],required:true},{id:"timeframe",kind:"SINGLE_SELECT",prompt:"时间",options:["最近24小时","最近7天","最近30天","更早"],required:true},{id:"task",kind:"SHORT_TEXT",prompt:"AI 生成了什么？遗漏了什么？",required:true},{id:"aiRole",kind:"SHORT_TEXT",prompt:"AI 做了什么？遗漏了哪些？",required:true},{id:"humanJudgment",kind:"SHORT_TEXT",prompt:"怎么发现的？如何修复？",required:true},{id:"artifactUrl",kind:"URL",prompt:"材料链接",required:false}],status:"OPEN",estimatedSeconds:40,createdAt:"2026-09-13T04:07:29.561Z",updatedAt:"2026-09-13T04:07:29.561Z"}],
-
-
-evidence:[{id:"ev-001",missionId:"mission-gap-001",participantType:"intern",submission:{statement:"",participantType:"intern",experience:"最近30天",task:"后台接口中AI生成了controller、DTO和happy-path测试",aiRole:"需要补数据模型、异常处理和权限逻辑",humanJudgment:"最终由我确认"},observation:"以前CRUD接口和基础测试主要自己写，现在更多让Claude Code先生成。",grade:"E1_FIRST_HAND",gradeReason:"第一手观察",matchesGap:true,createdAt:"2026-09-13T04:10:00.000Z"},
-{id:"ev-002",missionId:"mission-gap-001",participantType:"junior_developer_0_3_years",submission:{statement:"",participantType:"junior_developer_0_3_years",experience:"最近7天",task:"数据导出功能AI生成了整套代码",aiRole:"补了分批查询、权限和告警",humanJudgment:"AI擅长典型情况，边界条件需人工"},observation:"工作模式从写全部代码变为审查AI输出。最终2天完成，以前4-5天。",grade:"E1_FIRST_HAND",gradeReason:"第一手观察",matchesGap:true,createdAt:"2026-09-13T04:15:00.000Z"},
-{id:"ev-003",missionId:"mission-gap-002",participantType:"student_developer",submission:{statement:"",participantType:"student_developer",experience:"最近7天",task:"分页查询接口",aiRole:"遗漏租户过滤",humanJudgment:"补了跨租户测试"},observation:"AI生成了分页查询和参数校验，遗漏了租户过滤",grade:"E2_ARTIFACT_BACKED",gradeReason:"Artifact增强可信度",matchesGap:true,createdAt:"2026-09-13T04:20:00.000Z"}],
-
-
-knowledgeState:{status:"EARLY_EVIDENCE",evidenceCount:3,supported:[{id:"claim-001",claim:"AI Coding 将初级开发者的角色从代码生产者转变为审查者加边界条件专家",rationale:"多位开发者报告模式转变",sourceRefIds:[],evidenceIds:["ev-001","ev-002"]},{id:"claim-002",claim:"AI 生成的代码以 happy-path 为主，边界条件常被遗漏",rationale:"多位参与者报告边界条件被遗漏",sourceRefIds:[],evidenceIds:["ev-002","ev-003"]}],unsupported:[{id:"claim-003",claim:"AI Coding 导致初级开发者基础技能退化",rationale:"有观点但证据不足",sourceRefIds:[],evidenceIds:[]}],limitations:["当前结论来自少量第一手观察","样本规模有限不能外推"],nextGap:{id:"gap-002",claim:"AI Coding 改变了初级开发者哪些工作？",affectedClaim:"AI 生成的代码以 happy-path 为主",affectedClaimId:"claim-002",whyUnresolved:"缺少具体案例",missingObservation:"遗漏了哪些预期处理的情况？",targetParticipants:["学生开发者","实习生","0-3年开发者"],expectedValue:"分类记录遗漏模式"},updatedAt:"2026-09-13T04:20:00.000Z"},
-reevaluation:{supportedNow:[{id:"claim-001",claim:"角色转变",rationale:"多位开发者报告",sourceRefIds:[],evidenceIds:["ev-001","ev-002"]}],stillUnsupported:[],limitations:["样本有限","仅验证单个Mission"],knowledgeState:"EARLY_EVIDENCE",whyStateChanged:"Mission mission-gap-001 的 Evidence 属于 E1/E2 第一手观察",updatedAt:"2026-09-13T04:21:00.000Z"},
-createdAt:"2026-09-13T04:07:00.000Z",
-updatedAt:"2026-09-13T04:21:00.000Z"
-},
-discussions:[
-{type:"claim",author:"Agent 结构化提取",text:"AI Coding 将初级开发者的角色从代码生产者转变为审查者加边界条件专家",source:"搜索摘要与Evidence"},
-{type:"observation",author:"实习生 ev-001",text:"以前CRUD接口和基础测试主要自己写，现在更多让Claude Code先生成",source:"本人第一手Observation"},
-{type:"observation",author:"0-3年开发者 ev-002",text:"工作模式从自己写全部代码变成了先让AI生成再审查修复",source:"本人第一手Observation"},
-{type:"counterexample",author:"搜索来源",text:"过度依赖AI可能导致基础技能退化，AI生成的代码像快餐",source:"新浪新闻"},
-{type:"limitation",author:"Agent标注",text:"当前证据样本规模有限（3条第一手Observation）",source:"Evidence Authority"},
-{type:"opinion",author:"知乎文章",text:"AI不只是助手而是初级同事，写得快但最终仍需人类判断",source:"知乎专栏"}
-];
-
-
-let appState={investigation:JSON.parse(JSON.stringify(MOCK.investigation)),discussions:[...MOCK.discussions],selectedMissionId:null,evidenceCounter:0};
-const $=(id)=>document.getElementById(id);
-function gradeLabel(g){const m={E0_OPINION:"E0观点",E1_FIRST_HAND:"E1第一手",E2_ARTIFACT_BACKED:"E2有Artifact"};return m[g]||g}
-function gradeTag(g){if(g==="E0_OPINION")return"<span class=\"tag amber\">E0观点</span>";if(g==="E1_FIRST_HAND")return"<span class=\"tag green\">E1第一手</span>";if(g==="E2_ARTIFACT_BACKED")return"<span class=\"tag purple\">E2 Artifact</span>";return g}
-
-
-function statusBadge(s){if(s==="UNRESOLVED")return"<span class=\"status-badge unresolved\">✦ UNRESOLVED</span>";if(s==="EARLY_EVIDENCE")return"<span class=\"status-badge early-evidence\">✦ EARLY_EVIDENCE</span>";if(s==="SUPPORTED_WITH_LIMITATIONS")return"<span class=\"status-badge supported\">✦ SUPPORTED_WITH_LIMITATIONS</span>";return s}
-function renderKOHeader(){const i=appState.investigation;$("koStatus").className="status-badge "+(i.knowledgeState.status==="UNRESOLVED"?"unresolved":i.knowledgeState.status==="EARLY_EVIDENCE"?"early-evidence":"supported");$("koStatus").textContent="✦ "+i.knowledgeState.status;$("evidenceCount").textContent=i.evidence.length;$("missionCount").textContent=i.missions.length;$("lastUpdated").textContent=new Date(i.updatedAt).toLocaleString("zh-CN")}
-
-
-function renderB01Known(){const i=appState.investigation;const known=i.evidenceState.known||[];const supported=i.evidenceState.supported||[];$("knownCount").textContent=known.length;let h="";if(known.length===0){h="<p style=\"color:var(--muted);\">暂无已知信息。</p>"}else{h="<ul style=\"margin:0;padding-left:18px;font-size:13px;line-height:1.8;color:var(--sub);\">";known.forEach(k=>{h+="<li>"+k+"</li>"});h+="</ul>"}if(supported.length>0){h+="<div style=\"margin-top:14px;padding-top:14px;border-top:1px solid var(--line);\"><div class=\"card-label\" style=\"margin-bottom:10px;\">Supported Claims（有 Evidence 支持）</div>";supported.forEach(c=>{h+="<div class=\"claim-item\"><div class=\"claim-text\">"+c.claim+"</div><div class=\"claim-meta\"><span>ID: "+c.id+"</span><span>Evidence: "+c.evidenceIds.length+" 条</span></div></div>"});h+="</div>"}$("knownClaims").innerHTML=h}
-
-
-function renderDisagreements(){const i=appState.investigation;const d=i.evidenceState.disagreements||[];const u=i.evidenceState.unsupported||[];$("disagreementCount").textContent=d.length;let h="";if(d.length===0&&u.length===0){h="<p style=\"color:var(--muted);\">暂无争议。</p>"}else{if(d.length>0){h="<ul style=\"margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.8;color:var(--sub);\">";d.forEach(x=>{h+="<li>"+x+"</li>"});h+="</ul>"}if(u.length>0){h+="<div class=\"card-label\" style=\"margin-bottom:8px;\">Unsupported Claims（尚无足够 Evidence）</div>";u.forEach(c=>{h+="<div class=\"claim-item\"><div class=\"claim-text\">"+c.claim+"</div><div class=\"claim-meta\"><span>ID: "+c.id+"</span></div></div>"})}}$("disagreements").innerHTML=h}
-
-
-function renderB02Frontier(){const i=appState.investigation;const es=i.evidenceState;const gs=[];if(es.candidateGap)gs.push(es.candidateGap);if(es.nextGap&&es.nextGap.id!==(es.candidateGap||{}).id)gs.push(es.nextGap);$("gapCount").textContent=gs.length;if(gs.length===0){$("frontierGaps").innerHTML="<p style=\"color:var(--muted);\">暂无明确知识缺口。</p>";return}let h="";gs.forEach(g=>{let st="";const s=es.gapSuitability;if(s){if(s.status==="MISSION_READY")st="<span class=\"tag green\">MISSION_READY</span>";else if(s.status==="NEEDS_REFRAMING")st="<span class=\"tag amber\">NEEDS_REFRAMING</span>";else st="<span class=\"tag red\">NOT_SUITABLE</span>"}h+="<div class=\"claim-item\" style=\"border-left:3px solid var(--purple);\"><div style=\"display:flex;align-items:center;gap:8px;margin-bottom:8px;\"><span style=\"font-weight:700;font-size:13px;\">缺口: "+g.id+"</span>"+st+"</div><div class=\"claim-text\" style=\"font-size:13px;margin-bottom:10px;\">"+g.missingObservation+"</div><div class=\"card-label\" style=\"margin-bottom:4px;\">为什么还缺</div><p style=\"font-size:12px;color:var(--sub);margin:0 0 8px;\">"+g.whyUnresolved+"</p><div style=\"display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--sub);\"><span>🎯 目标参与者: "+g.targetParticipants.join("、")+"</span><span>💡 预期价值: "+g.expectedValue+"</span></div><div style=\"margin-top:8px;\"><span class=\"tag blue\">影响Claim: "+g.affectedClaimId+"</span></div></div>"});$("frontierGaps").innerHTML=h}
-
-
-function renderLimitations(){const i=appState.investigation;const l=i.evidenceState.limitations||i.knowledgeState.limitations||[];if(l.length===0){$("limitations").innerHTML="<p style=\"color:var(--muted);\">暂无限制条件。</p>";return}let h="<ul style=\"margin:0;padding-left:18px;font-size:13px;line-height:1.8;color:var(--sub);\">";l.forEach(x=>{h+="<li>"+x+"</li>"});h+="</ul>";$("limitations").innerHTML=h}
-function renderB07KnowledgeState(){const i=appState.investigation;const ks=i.knowledgeState;const re=i.reevaluation;let h="<div class=\"two-col\" style=\"margin-bottom:16px;\"><div><div class=\"card-label\">当前状态</div><div style=\"font-size:20px;font-weight:700;margin-bottom:4px;\">"+statusBadge(ks.status)+"</div><div style=\"font-size:12px;color:var(--sub);\">Evidence: "+ks.evidenceCount+" 条</div></div><div><div class=\"card-label\">Claim 统计</div><div style=\"display:flex;gap:16px;font-size:13px;\"><span>Supported: <strong>"+ks.supported.length+"</strong></span><span>Unsupported: <strong>"+ks.unsupported.length+"</strong></span><span>Limitations: <strong>"+ks.limitations.length+"</strong></span></div>"+(re?"<div style=\"font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5;\">上次 Re-evaluation: "+re.whyStateChanged.slice(0,60)+"…</div>":"")+"</div></div><div class=\"provenance-note\"><span>ℹ</span><div>状态来源说明：Supported 不代表普遍真相，Unsupported 不代表虚假。</div></div>";$("knowledgeStatePanel").innerHTML=h}
-
-
-function renderB03MissionFeed(){const i=appState.investigation;const om=i.missions.filter(m=>m.status==="OPEN");$("openMissionCount").textContent=om.length;if(om.length===0){$("missionFeed").innerHTML="<div class=\"empty-state\"><div class=\"e-icon\">📭</div><p>当前暂无 OPEN 的 Mission。</p></div>";return}let h="<div style=\"display:grid;gap:14px;\">";om.forEach(m=>{h+="<div class=\"mission-card\" onclick=\"openMissionModal(\x27"+m.id+"\x27)\"><div class=\"mission-tags\"><span class=\"tag green\">OPEN</span><span class=\"tag blue\">"+(m.estimatedSeconds||50)+" 秒</span><span class=\"tag muted\">Gap: "+m.evidenceGapId+"</span></div><h4>"+m.title+"</h4><div class=\"mission-desc\">"+m.description.slice(0,120)+"…</div><div class=\"mission-footer\"><span style=\"font-size:12px;color:var(--muted);\">🎯 "+m.qualification.join("、")+"</span><button class=\"btn btn-primary btn-sm\">参与</button></div></div>"});h+="</div>";$("missionFeed").innerHTML=h}
-
-
-function renderDiscussions(){const items=appState.discussions;if(items.length===0){$("discussionList").innerHTML="<p style=\"color:var(--muted);font-size:13px;\">暂无讨论内容。</p>";return}let h="<div class=\"card\">";items.forEach(d=>{h+="<div class=\"discussion-item\"><div class=\"d-author\"><span class=\"d-type "+d.type+"\">"+d.type+"</span>"+d.author+"</div><div class=\"d-text\">"+d.text+"</div><div style=\"font-size:11px;color:var(--muted);margin-top:4px;\">来源: "+d.source+"</div></div>"});h+="</div>";$("discussionList").innerHTML=h}
-function renderEvidenceTimeline(){const e=appState.investigation.evidence;$("tlCount").textContent=e.length;if(e.length===0){$("evidenceTimeline").innerHTML="<p style=\"color:var(--muted);font-size:13px;padding-left:24px;\">提交 Evidence 后会显示在这里。</p>";return}let h="";e.forEach((ev,i)=>{h+="<div class=\"tl-item "+(i===e.length-1?"active":"done")+"\"><div class=\"tl-label\">"+gradeTag(ev.grade)+" "+new Date(ev.createdAt).toLocaleString("zh-CN")+"</div><div class=\"tl-desc\">"+ev.observation.slice(0,80)+"…</div><div style=\"display:flex;gap:6px;margin-top:4px;\"><span class=\"tag "+(ev.matchesGap?"green":"amber")+"\">"+(ev.matchesGap?"✓ 匹配 Gap":"✗ 不匹配 Gap")+"</span><span class=\"tag muted\">"+ev.participantType+"</span></div></div>"});$("evidenceTimeline").innerHTML=h}
-function renderAll(){renderKOHeader();renderB01Known();renderDisagreements();renderB02Frontier();renderLimitations();renderB03MissionFeed();renderB07KnowledgeState();renderDiscussions();renderEvidenceTimeline()}
-
-
-document.querySelectorAll(".tab").forEach(t=>{t.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.querySelectorAll(".tab-content").forEach(x=>x.style.display="none");const tg=document.getElementById("tab"+t.dataset.tab.charAt(0).toUpperCase()+t.dataset.tab.slice(1));if(tg)tg.style.display="block"})});
-
-
-function findGapById(gid){const es=appState.investigation.evidenceState;const cs=[es.candidateGap,es.nextGap,es.gapSuitability?.reframedGap].filter(Boolean);return cs.find(g=>g.id===gid)}
-window.openMissionModal=function(mid){const m=appState.investigation.missions.find(x=>x.id===mid);if(!m)return;appState.selectedMissionId=mid;const g=findGapById(m.evidenceGapId);$("modalMissionTitle").textContent=m.title;$("modalMissionDesc").textContent=m.description;$("modalMissionPurpose").textContent=g?g.missingObservation:"-";$("modalMissionQualification").textContent=m.qualification.join("、");$("modalClaimId").textContent=g?g.affectedClaimId:"-";$("modalGapId").textContent=g?g.id:"-";$("modalMissionStatus").textContent=m.status;$("modalMissionStatus").className="tag "+(m.status==="OPEN"?"green":"muted");document.getElementById("evidenceForm").reset();$("submitStatus").innerHTML="";$("submitEvidenceBtn").disabled=false;$("missionModal").classList.add("open")};
-window.closeMissionModal=function(){$("missionModal").classList.remove("open")};
-
-
-window.submitEvidence=async function(e){e.preventDefault();const btn=$("submitEvidenceBtn");const st=$("submitStatus");btn.disabled=true;st.innerHTML="<div class=\"loading\"><div class=\"spinner\"></div>正在校验、评级并重新评估 Knowledge State…</div>";await new Promise(r=>setTimeout(r,1500));try{const f=document.getElementById("evidenceForm");const pt=f.querySelector("#inputParticipant").value;const tf=f.querySelector("#inputTimeframe").value;const tk=f.querySelector("#inputTask").value.trim();const ar=f.querySelector("#inputAiRole").value.trim();const jg=f.querySelector("#inputJudgment").value.trim();const au=f.querySelector("#inputArtifact").value.trim();const m=appState.investigation.missions.find(x=>x.id===appState.selectedMissionId);if(!m)throw Error("Mission not found");const g=findGapById(m.evidenceGapId);if(!g)throw Error("Gap not found");
-
-
-const hfs=tk.length>=2&&ar.length>=2&&jg.length>=2;const pm=g.targetParticipants.some(t=>pt.includes(t)||t.includes(pt));const mg=hfs&&pm;let gr,grr;if(!hfs){gr="E0_OPINION";grr="只有观点性陈述，没有提供可核验的本人具体任务、AI 贡献和人工判断。"}else{gr="E1_FIRST_HAND";grr="提供了本人具体经历、任务、AI 贡献和人工判断，属于第一手观察。"}if(hfs&&au){gr="E2_ARTIFACT_BACKED";grr="在第一手观察基础上提供了相关 Artifact，可增强该观察的可信度。"}
-
-
-const id="ev-mock-"+(++appState.evidenceCounter);const now=new Date().toISOString();const obs=[tf,tk,ar,jg].join("；");const rec={id,missionId:m.id,participantType:pt,submission:{statement:"",participantType:pt,experience:tf,task:tk,aiRole:ar,humanJudgment:jg,artifactUrl:au||undefined},observation:obs,grade:gr,gradeReason:grr+" Mission: "+m.title+"。",matchesGap:mg,createdAt:now};appState.investigation.evidence.push(rec);const accepted=mg&&(gr==="E1_FIRST_HAND"||gr==="E2_ARTIFACT_BACKED");const sb=appState.investigation.knowledgeState.status;let sa=sb;let wc="";if(accepted&&mg){if(sb==="UNRESOLVED"){sa="EARLY_EVIDENCE";wc="Mission "+m.title+" 的 Evidence 属于 E1/E2 第一手观察，推进了 Knowledge State。"}else{sa=sb;wc="Evidence 已纳入，当前状态保持不变。"}const tc=appState.investigation.evidenceState.supported.find(c=>c.id===g.affectedClaimId);if(tc)tc.evidenceIds.push(id)}else{if(!mg){wc="Observation 不匹配当前 Evidence Gap，未纳入评估。"}else{wc="Observation 为 E0 观点级别，不能推进 Knowledge State。"}}
-
-
-appState.investigation.knowledgeState.evidenceCount=appState.investigation.evidence.length;appState.investigation.knowledgeState.status=sa;appState.investigation.knowledgeState.updatedAt=now;appState.investigation.reevaluation={supportedNow:appState.investigation.knowledgeState.supported,stillUnsupported:appState.investigation.knowledgeState.unsupported,limitations:appState.investigation.knowledgeState.limitations,knowledgeState:sa,whyStateChanged:wc,updatedAt:now};appState.investigation.updatedAt=now;let im;if(!accepted){im=mg?"E0 不能推进 Knowledge State":"Observation 不匹配 Evidence Gap"}else{im="Observation accepted. Evidence from "+m.title+" advanced the Knowledge State."}
-
-
-const rc={evidenceId:id,missionId:m.id,investigationId:appState.investigation.id,accepted,grade:gr,affectedClaimId:g.affectedClaimId,stateBefore:sb,stateAfter:sa,impactSummary:im,stillMissing:appState.investigation.knowledgeState.limitations,createdAt:now};showReceipt(rc);st.innerHTML="<span style=\"color:var(--green);font-weight:600;\">✓ Evidence 提交成功！</span>";closeMissionModal();renderAll()}catch(err){st.innerHTML="<span style=\"color:var(--red);\">✗ "+err.message+"</span>"}finally{btn.disabled=false}}
-
-
-function showReceipt(rc){$("receiptSubtitle").textContent=rc.accepted?"✓ 你的 Observation 已被采纳，进入评估链路":"✗ 暂未影响结论";$("receiptAccepted").innerHTML=rc.accepted?"<span style=\"color:var(--green);\">accepted ✓ 已进入影响链路</span>":"<span style=\"color:var(--amber);\">rejected ✗ 暂未影响结论</span>";$("receiptGrade").innerHTML=gradeTag(rc.grade);$("receiptGradeReason").textContent=rc.accepted?"E1/E2 第一手 Observation，已纳入 Re-evaluation。":"不满足 E1/E2 条件或不匹配 Gap。";let ct=rc.affectedClaimId;const ac=[...(appState.investigation.evidenceState.supported||[]),...(appState.investigation.evidenceState.unsupported||[])];const cl=ac.find(c=>c.id===rc.affectedClaimId);if(cl)ct=cl.claim.slice(0,60)+"…";$("receiptClaim").textContent=ct;$("receiptStateDelta").innerHTML=statusBadge(rc.stateBefore)+" <span style=\"color:var(--muted);font-size:16px;\">→</span> "+statusBadge(rc.stateAfter);$("receiptSummary").textContent=rc.impactSummary;$("receiptStillMissing").innerHTML=rc.stillMissing.map(m=>"• "+m).join("<br/>");$("receiptModal").classList.add("open")}
-window.closeReceiptModal=function(){$("receiptModal").classList.remove("open")};
-document.addEventListener("DOMContentLoaded",()=>{renderAll()});
-
-</script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"
+    />
+    <title>Human Gateway · Knowledge Object Demo</title>
+    <style>
+      :root {
+        --bg: #f5f7fa;
+        --card: #fff;
+        --ink: #18191c;
+        --sub: #5f6772;
+        --muted: #9299a3;
+        --line: #e8ebef;
+        --blue: #1772f6;
+        --blue-soft: #eaf3ff;
+        --blue-dark: #0d5dcc;
+        --green: #168a5b;
+        --green-soft: #eaf8f1;
+        --amber: #b97816;
+        --amber-soft: #fff6e5;
+        --red: #d94a45;
+        --red-soft: #fff1f0;
+        --purple: #7c3aed;
+        --purple-soft: #f3eeff;
+        --cyan: #0a8f8f;
+        --cyan-soft: #e6f7f7;
+        --radius: 8px;
+        --radius-lg: 12px;
+        --shadow: 0 14px 40px rgba(23, 42, 70, 0.07);
+        --shadow-sm: 0 2px 8px rgba(23, 42, 70, 0.05);
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      a {
+        color: var(--blue);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .shell {
+        width: min(960px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+      .topbar {
+        height: 60px;
+        background: rgba(255, 255, 255, 0.94);
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(6px);
+      }
+      .topbar-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 100%;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 750;
+        font-size: 17px;
+      }
+      .mark {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        color: #fff;
+        background: var(--blue);
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .brand small {
+        padding: 3px 8px;
+        color: var(--blue-dark);
+        background: var(--blue-soft);
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .provenance-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        background: var(--green-soft);
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--green);
+      }
+      .provenance-badge .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+      main {
+        padding: 32px 0 80px;
+      }
+      .ko-header {
+        padding: 28px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+      }
+      .ko-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+      .ko-title {
+        font-size: clamp(22px, 3vw, 30px);
+        font-weight: 750;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+        margin: 0 0 10px;
+      }
+      .ko-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        font-size: 13px;
+        color: var(--sub);
+      }
+      .ko-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .ko-meta-item strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .status-badge.unresolved {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .status-badge.early-evidence {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+      .status-badge.supported {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .section {
+        margin-top: 24px;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .section-header h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-header h2 .icon {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      .section-header .count {
+        padding: 1px 8px;
+        background: var(--line);
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--sub);
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 700px) {
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        padding: 20px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .card p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.7;
+        color: var(--sub);
+      }
+      .card-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 6px;
+      }
+      .claim-item {
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        margin-bottom: 10px;
+      }
+      .claim-item:last-child {
+        margin-bottom: 0;
+      }
+      .claim-text {
+        font-size: 14px;
+        line-height: 1.6;
+        font-weight: 500;
+      }
+      .claim-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .tag.blue {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+      .tag.green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tag.amber {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .tag.red {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .tag.purple {
+        background: var(--purple-soft);
+        color: var(--purple);
+      }
+      .tag.cyan {
+        background: var(--cyan-soft);
+        color: var(--cyan);
+      }
+      .tag.muted {
+        background: #f0f2f5;
+        color: var(--sub);
+      }
+      .mission-card {
+        padding: 18px 20px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .mission-card:hover {
+        border-color: var(--blue);
+        box-shadow: var(--shadow);
+      }
+      .mission-card h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 650;
+      }
+      .mission-card .mission-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .mission-card .mission-desc {
+        font-size: 13px;
+        color: var(--sub);
+        line-height: 1.7;
+      }
+      .mission-card .mission-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+      .form-group {
+        margin-bottom: 16px;
+      }
+      .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--sub);
+        margin-bottom: 6px;
+      }
+      .form-group label .required {
+        color: var(--red);
+        margin-left: 2px;
+      }
+      textarea,
+      input,
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        color: var(--ink);
+        background: #fff;
+        border: 1px solid #dce1e7;
+        border-radius: 6px;
+        outline: 0;
+        transition: border-color 0.15s;
+      }
+      textarea:focus,
+      input:focus,
+      select:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 2px var(--blue-soft);
+      }
+      textarea {
+        resize: vertical;
+        min-height: 64px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 18px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.12s;
+        white-space: nowrap;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        color: #fff;
+        background: var(--blue);
+      }
+      .btn-primary:hover:not(:disabled) {
+        background: var(--blue-dark);
+      }
+      .btn-outline {
+        color: var(--sub);
+        background: transparent;
+        border-color: var(--line);
+      }
+      .btn-outline:hover:not(:disabled) {
+        border-color: var(--muted);
+        background: #f8f9fb;
+      }
+      .btn-success {
+        color: #fff;
+        background: var(--green);
+      }
+      .btn-success:hover:not(:disabled) {
+        background: #126e49;
+      }
+      .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      .timeline {
+        position: relative;
+        padding-left: 24px;
+      }
+      .timeline::before {
+        content: "";
+        position: absolute;
+        left: 9px;
+        top: 4px;
+        bottom: 4px;
+        width: 2px;
+        background: var(--line);
+      }
+      .tl-item {
+        position: relative;
+        margin-bottom: 16px;
+        padding-left: 16px;
+      }
+      .tl-item::before {
+        content: "";
+        position: absolute;
+        left: -20px;
+        top: 6px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 2px solid var(--muted);
+      }
+      .tl-item.done::before {
+        background: var(--green);
+        border-color: var(--green);
+      }
+      .tl-item.active::before {
+        background: var(--blue);
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px var(--blue-soft);
+      }
+      .tl-item .tl-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--sub);
+      }
+      .tl-item .tl-desc {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .receipt {
+        background: linear-gradient(135deg, var(--green-soft), #f0faf5);
+        border: 1px solid #c8e6d9;
+        border-radius: var(--radius-lg);
+        padding: 24px;
+      }
+      .receipt-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .receipt-icon {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        background: var(--green);
+        border-radius: 50%;
+        color: #fff;
+        font-size: 20px;
+      }
+      .receipt-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .receipt-header p {
+        margin: 2px 0 0;
+        font-size: 13px;
+        color: var(--sub);
+      }
+      .receipt-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 500px) {
+        .receipt-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .receipt-field {
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: var(--radius);
+      }
+      .receipt-field .rf-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .receipt-field .rf-value {
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.5;
+      }
+      .state-delta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+      .state-box {
+        padding: 8px 16px;
+        border-radius: var(--radius);
+        text-align: center;
+      }
+      .state-box .s-label {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .state-box .s-value {
+        font-size: 15px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+      .state-arrow {
+        font-size: 20px;
+        color: var(--muted);
+      }
+      .tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 20px;
+      }
+      .tab {
+        padding: 10px 18px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .tab:hover {
+        color: var(--ink);
+      }
+      .tab.active {
+        color: var(--blue);
+        border-bottom-color: var(--blue);
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 32px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--line);
+        border-top-color: var(--blue);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .provenance-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 14px;
+        background: var(--amber-soft);
+        border-radius: var(--radius);
+        font-size: 12px;
+        color: #7a5a10;
+        margin-top: 12px;
+        line-height: 1.6;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .overlay.open {
+        display: flex;
+      }
+      .modal {
+        width: min(580px, 100%);
+        max-height: 90vh;
+        overflow-y: auto;
+        background: var(--card);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        padding: 28px;
+      }
+      .modal-close {
+        float: right;
+        border: none;
+        background: none;
+        font-size: 22px;
+        color: var(--muted);
+        padding: 0;
+        line-height: 1;
+      }
+      .modal-close:hover {
+        color: var(--ink);
+      }
+      .discussion-item {
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .discussion-item:last-child {
+        border-bottom: none;
+      }
+      .discussion-item .d-author {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .discussion-item .d-text {
+        font-size: 13px;
+        line-height: 1.7;
+        color: var(--sub);
+      }
+      .discussion-item .d-type {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        margin-right: 6px;
+      }
+      .d-type.opinion {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .d-type.observation {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .d-type.claim {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+      .d-type.counterexample {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .d-type.limitation {
+        background: var(--purple-soft);
+        color: var(--purple);
+      }
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--muted);
+      }
+      .empty-state .e-icon {
+        font-size: 36px;
+        margin-bottom: 12px;
+      }
+      .empty-state p {
+        font-size: 13px;
+        line-height: 1.7;
+        margin: 0;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .fade-in {
+        animation: fadeInUp 0.3s ease-out;
+      }
+      @media (max-width: 600px) {
+        .ko-header {
+          padding: 20px;
+        }
+        .card {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell topbar-inner">
+        <div class="brand">
+          <span class="mark">H</span>Human Gateway<small>Knowledge Object</small>
+        </div>
+        <div class="topbar-right">
+          <div class="provenance-badge"><span class="dot"></span>Mock Data</div>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div class="shell">
+        <div class="ko-header" id="koHeader">
+          <div class="ko-breadcrumb">
+            <a href="#">Circle</a><span class="sep">/</span><span>AI Coding</span
+            ><span class="sep">/</span><span id="koName">AI Coding 对初级开发者的影响</span>
+          </div>
+          <h1 class="ko-title" id="koTitle">AI Coding 实际改变了初级开发者哪些工作？</h1>
+          <div class="ko-meta">
+            <div class="ko-meta-item">
+              <span>状态</span
+              ><span class="status-badge early-evidence" id="koStatus">✦ EARLY_EVIDENCE</span>
+            </div>
+            <div class="ko-meta-item">
+              <span>Evidence 数量</span><strong id="evidenceCount">0</strong>
+            </div>
+            <div class="ko-meta-item">
+              <span>Mission 数量</span><strong id="missionCount">0</strong>
+            </div>
+            <div class="ko-meta-item"><span>最后更新</span><strong id="lastUpdated">-</strong></div>
+          </div>
+        </div>
+
+        <div class="tabs" id="tabs">
+          <div class="tab active" data-tab="overview">概览 (B01+B02)</div>
+          <div class="tab" data-tab="missions">Mission Feed (B03)</div>
+          <div class="tab" data-tab="discussions">讨论组织</div>
+        </div>
+
+        <div class="tab-content" id="tabOverview">
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--green-soft); color: var(--green)"
+                  >✓</span
+                >已知 (Known)
+              </h2>
+              <span class="count" id="knownCount">0</span>
+            </div>
+            <div id="knownClaims" class="card"><p style="color: var(--muted)">加载中...</p></div>
+          </div>
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--amber-soft); color: var(--amber)"
+                  >⚡</span
+                >争议 (Disagreements)
+              </h2>
+              <span class="count" id="disagreementCount">0</span>
+            </div>
+            <div id="disagreements" class="card"><p style="color: var(--muted)">加载中...</p></div>
+          </div>
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--purple-soft); color: var(--purple)"
+                  >?</span
+                >知识边界 (Knowledge Frontier)
+              </h2>
+              <span class="count" id="gapCount">0</span>
+            </div>
+            <div id="frontierGaps" class="card"><p style="color: var(--muted)">加载中...</p></div>
+          </div>
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--red-soft); color: var(--red)">⚠</span
+                >限制条件 (Limitations)
+              </h2>
+            </div>
+            <div id="limitations" class="card"><p style="color: var(--muted)">加载中...</p></div>
+          </div>
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--blue-soft); color: var(--blue)">◉</span
+                >知识状态 (Knowledge State)
+              </h2>
+            </div>
+            <div id="knowledgeStatePanel" class="card">
+              <p style="color: var(--muted)">加载中...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabMissions" style="display: none">
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--cyan-soft); color: var(--cyan)">⌂</span
+                >可参与 Mission
+              </h2>
+              <span class="count" id="openMissionCount">0</span>
+            </div>
+            <p style="font-size: 13px; color: var(--sub); margin: 0 0 16px; line-height: 1.7">
+              以下 Mission 来自 Investigation 中发现的 Evidence Gap，只展示 OPEN 状态的可参与任务。
+            </p>
+            <div id="missionFeed"></div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabDiscussions" style="display: none">
+          <div class="section fade-in">
+            <div class="section-header">
+              <h2>
+                <span class="icon" style="background: var(--purple-soft); color: var(--purple)"
+                  >💬</span
+                >讨论结构化组织
+              </h2>
+            </div>
+            <p style="font-size: 13px; color: var(--sub); margin: 0 0 16px; line-height: 1.7">
+              Agent 从搜索和讨论中提取以下结构化内容。原始表达保留可追溯，区分 Opinion、Claim
+              Candidate、Observation、Counterexample 与 Limitation。
+            </p>
+            <div id="discussionList"></div>
+          </div>
+        </div>
+
+        <div class="section fade-in">
+          <div class="section-header">
+            <h2>
+              <span class="icon" style="background: var(--amber-soft); color: var(--amber)">⏱</span
+              >Evidence Timeline
+            </h2>
+            <span class="count" id="tlCount">0</span>
+          </div>
+          <div class="timeline" id="evidenceTimeline">
+            <p style="color: var(--muted); font-size: 13px">提交 Evidence 后会显示在这里</p>
+          </div>
+        </div>
+      </div>
+    </main>
+    <div class="overlay" id="missionModal">
+      <div class="modal">
+        <button class="modal-close" onclick="closeMissionModal()">×</button>
+        <h2 style="margin: 0 0 6px; font-size: 18px" id="modalMissionTitle">Mission Detail</h2>
+        <p
+          style="margin: 0 0 18px; font-size: 13px; color: var(--sub); line-height: 1.7"
+          id="modalMissionDesc"
+        ></p>
+        <div class="two-col" style="margin-bottom: 16px">
+          <div>
+            <div class="card-label">目的</div>
+            <p style="font-size: 13px" id="modalMissionPurpose"></p>
+          </div>
+          <div>
+            <div class="card-label">参与资格</div>
+            <p style="font-size: 13px" id="modalMissionQualification"></p>
+          </div>
+        </div>
+        <div class="card-label">Evidence 影响链</div>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+          "
+        >
+          <span class="tag blue" id="modalClaimId">-</span
+          ><span style="color: var(--muted)">→</span>
+          <span class="tag amber" id="modalGapId">-</span><span style="color: var(--muted)">→</span>
+          <span class="tag green" id="modalMissionStatus">OPEN</span>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--line); margin: 18px 0" />
+        <h3 style="font-size: 15px; margin: 0 0 12px">提交你的第一手经历</h3>
+        <p style="font-size: 12px; color: var(--sub); margin: 0 0 16px; line-height: 1.6">
+          这不是要求你写一篇完整答案。请基于你本人的真实经历，描述具体场景、AI
+          的角色和你自己的判断。
+        </p>
+        <form id="evidenceForm" onsubmit="submitEvidence(event)">
+          <div class="form-group">
+            <label>你与这次经历最接近的身份 <span class="required">*</span></label>
+            <select id="inputParticipant" required="">
+              <option value="">请选择</option>
+              <option value="student_developer">学生开发者</option>
+              <option value="intern">实习生</option>
+              <option value="junior_developer_0_3_years">0–3 年开发者</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>这次经历大约发生在什么时候？ <span class="required">*</span></label>
+            <select id="inputTimeframe" required="">
+              <option value="">请选择</option>
+              <option value="最近 24 小时">最近 24 小时</option>
+              <option value="最近 7 天">最近 7 天</option>
+              <option value="最近 30 天">最近 30 天</option>
+              <option value="更早">更早</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>具体发生在什么任务、步骤或场景？ <span class="required">*</span></label>
+            <textarea
+              id="inputTask"
+              required
+              placeholder="例如：写一个分页查询接口，AI 生成了 controller 和 DTO 的样板代码..."
+              rows="2"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label
+              >当时具体发生了什么？哪一个环节发生了变化？ <span class="required">*</span></label
+            >
+            <textarea
+              id="inputAiRole"
+              required
+              placeholder="例如：AI 把 CRUD 样板先写好了，我需要补业务约束和异常处理..."
+              rows="2"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>你最后如何判断或处理？最终结果是什么？ <span class="required">*</span></label>
+            <textarea
+              id="inputJudgment"
+              required
+              placeholder="例如：我核对了数据模型的业务约束，补充了租户权限过滤，最终正常上线..."
+              rows="2"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>可选：提供截图、记录链接或其他相关材料</label>
+            <input type="url" id="inputArtifact" placeholder="https://..." />
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap">
+            <button type="submit" class="btn btn-success" id="submitEvidenceBtn">
+              提交 Observation
+            </button>
+            <button type="button" class="btn btn-outline" onclick="closeMissionModal()">
+              取消
+            </button>
+          </div>
+          <div id="submitStatus" style="margin-top: 12px; font-size: 13px"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="overlay" id="receiptModal">
+      <div class="modal">
+        <button class="modal-close" onclick="closeReceiptModal()">×</button>
+        <div class="receipt">
+          <div class="receipt-header">
+            <div class="receipt-icon">✓</div>
+            <div>
+              <h3>Impact Receipt</h3>
+              <p id="receiptSubtitle">你的 Observation 已进入评估链路</p>
+            </div>
+          </div>
+          <div class="receipt-grid">
+            <div class="receipt-field">
+              <div class="rf-label">结果</div>
+              <div class="rf-value" id="receiptAccepted">-</div>
+            </div>
+            <div class="receipt-field">
+              <div class="rf-label">Evidence Grade</div>
+              <div class="rf-value" id="receiptGrade">-</div>
+            </div>
+            <div class="receipt-field" style="grid-column: 1/-1">
+              <div class="rf-label">Grade 理由</div>
+              <div class="rf-value" id="receiptGradeReason" style="font-weight: 400"></div>
+            </div>
+            <div class="receipt-field">
+              <div class="rf-label">影响的 Claim</div>
+              <div class="rf-value" id="receiptClaim">-</div>
+            </div>
+            <div class="receipt-field">
+              <div class="rf-label">知识状态变化</div>
+              <div class="rf-value" id="receiptStateDelta">-</div>
+            </div>
+            <div class="receipt-field" style="grid-column: 1/-1">
+              <div class="rf-label">影响摘要</div>
+              <div class="rf-value" id="receiptSummary" style="font-weight: 400"></div>
+            </div>
+            <div class="receipt-field" style="grid-column: 1/-1">
+              <div class="rf-label">仍然缺失</div>
+              <div class="rf-value" id="receiptStillMissing" style="font-weight: 400"></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 16px">
+          <button class="btn btn-primary" onclick="closeReceiptModal()">继续浏览</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const MOCK={
+      KS:{UNRESOLVED:"UNRESOLVED",EARLY_EVIDENCE:"EARLY_EVIDENCE",SUPPORTED_WITH_LIMITATIONS:"SUPPORTED_WITH_LIMITATIONS"},
+      EG:{E0_OPINION:"E0_OPINION",E1_FIRST_HAND:"E1_FIRST_HAND",E2_ARTIFACT_BACKED:"E2_ARTIFACT_BACKED"},
+      GS:{MISSION_READY:"MISSION_READY",NEEDS_REFRAMING:"NEEDS_REFRAMING",NOT_SUITABLE_FOR_HUMAN_MISSION:"NOT_SUITABLE_FOR_HUMAN_MISSION"},
+      MS:{OPEN:"OPEN",CLOSED:"CLOSED"},
+      investigation:{
+      id:"inv-ai-coding-001",
+      question:"AI Coding 实际改变了初级开发者哪些工作？",
+      searches:{zhihu:{query:"...",provider:"ZHIHU",provenance:"GOLDEN_FIXTURE",items:[],hasMore:false,retrievedAt:"2026-09-13T04:07:29.561Z",limitations:["Fixtures"]},global:{query:"...",provider:"GLOBAL",provenance:"GOLDEN_FIXTURE",items:[],hasMore:false,retrievedAt:"2026-09-13T04:07:29.561Z",limitations:["Fixtures"]}},
+      evidenceState:{
+      known:["AI Coding 工具（Copilot, Cursor, Claude Code 等）正在改变初级开发者的日常工作模式","初级开发者从自己写全部代码转向审查和修复 AI 生成的代码","AI 擅长典型场景和 happy-path，但边界条件、安全约束和业务异常处理需要人工补充"],
+      disagreements:["AI 是让初级开发者学得更快还是学得更浅存在争议","AI 节省的时间是用于更高质量的工作，还是被更多任务填满，观点不一"],
+
+
+      supported:[{id:"claim-001",claim:"AI Coding 将初级开发者的角色从代码生产者转变为代码审查者加边界条件专家",rationale:"多位 0-3 年开发者报告工作模式转变",sourceRefIds:[],evidenceIds:["ev-001","ev-002","ev-005"]},{id:"claim-002",claim:"AI 生成的代码以 happy-path 为主，业务约束和异常处理常被遗漏",rationale:"多位参与者报告边界条件被遗漏",sourceRefIds:[],evidenceIds:["ev-002","ev-005"]}],
+      unsupported:[{id:"claim-003",claim:"AI Coding 工具导致初级开发者基础技能退化",rationale:"有观点认为 AI 包办了基础编码和调试",sourceRefIds:[],evidenceIds:[]}],
+      limitations:["当前结论来自搜索摘要和少量第一手观察","当前样本规模有限不能外推为行业总体比例"],
+
+
+      candidateGap:{id:"gap-001",claim:"AI Coding 改变了初级开发者哪些工作？",affectedClaim:"角色从代码生产者转变为审查者",affectedClaimId:"claim-001",whyUnresolved:"缺少具体到哪些任务交给 AI 的细节",missingObservation:"哪些过去自己完成的任务现在交给 AI？人仍在哪一步承担最终判断？",targetParticipants:["学生开发者","实习生","0-3 年开发者"],expectedValue:"明确 AI 接管了哪些具体任务类型"},
+      gapSuitability:{status:"MISSION_READY",singleObservation:true,lowHumanCost:true,decisionImpact:true,prevalenceRisk:false,standardizedMeasurementDependency:false,reason:"该 Gap 适合单人描述具体任务变化，不需要统计样本"},
+      nextGap:{id:"gap-002",claim:"AI Coding 改变了初级开发者哪些工作？",affectedClaim:"AI 生成的代码以 happy-path 为主",affectedClaimId:"claim-002",whyUnresolved:"缺少具体案例说明哪些边界最易被遗漏",missingObservation:"AI 生成的代码遗漏了哪些你预期它会处理的情况？",targetParticipants:["学生开发者","实习生","0-3 年开发者"],expectedValue:"分类记录 AI 代码常见遗漏模式"}
+      },
+      actions:["SEARCH_ZHIHU","SEARCH_WEB","ASSESS_EVIDENCE","ASSESS_GAP_SUITABILITY","CREATE_MISSION","STOP"],
+
+
+      missions:[{id:"mission-gap-001",investigationId:"inv-ai-coding-001",evidenceGapId:"gap-001",title:"你的工作模式被 AI Coding 改变了吗？",description:"我们想了解最近持续使用 AI Coding 的学生、实习生或 0-3 年开发者，哪些任务现在主要交给 AI？",qualification:["学生开发者","实习生","0-3 年开发者"],fields:[{id:"participantType",kind:"SINGLE_SELECT",prompt:"身份",options:["学生开发者","实习生","0-3 年开发者","其他"],required:true},{id:"timeframe",kind:"SINGLE_SELECT",prompt:"时间",options:["最近24小时","最近7天","最近30天","更早"],required:true},{id:"task",kind:"SHORT_TEXT",prompt:"具体任务？",required:true},{id:"aiRole",kind:"SHORT_TEXT",prompt:"AI 做了什么？",required:true},{id:"humanJudgment",kind:"SHORT_TEXT",prompt:"你的判断？",required:true},{id:"artifactUrl",kind:"URL",prompt:"材料链接",required:false}],status:"OPEN",estimatedSeconds:50,createdAt:"2026-09-13T04:07:29.561Z",updatedAt:"2026-09-13T04:07:29.561Z"},
+
+
+      {id:"mission-gap-002",investigationId:"inv-ai-coding-001",evidenceGapId:"gap-002",title:"AI 生成的代码遗漏了什么？",description:"我们想了解 AI 生成的代码遗漏了哪些你预期它会处理的情况？你是怎么发现的？",qualification:["学生开发者","实习生","0-3 年开发者"],fields:[{id:"participantType",kind:"SINGLE_SELECT",prompt:"身份",options:["学生开发者","实习生","0-3 年开发者","其他"],required:true},{id:"timeframe",kind:"SINGLE_SELECT",prompt:"时间",options:["最近24小时","最近7天","最近30天","更早"],required:true},{id:"task",kind:"SHORT_TEXT",prompt:"AI 生成了什么？遗漏了什么？",required:true},{id:"aiRole",kind:"SHORT_TEXT",prompt:"AI 做了什么？遗漏了哪些？",required:true},{id:"humanJudgment",kind:"SHORT_TEXT",prompt:"怎么发现的？如何修复？",required:true},{id:"artifactUrl",kind:"URL",prompt:"材料链接",required:false}],status:"OPEN",estimatedSeconds:40,createdAt:"2026-09-13T04:07:29.561Z",updatedAt:"2026-09-13T04:07:29.561Z"}],
+
+
+      evidence:[{id:"ev-001",missionId:"mission-gap-001",participantType:"intern",submission:{statement:"",participantType:"intern",experience:"最近30天",task:"后台接口中AI生成了controller、DTO和happy-path测试",aiRole:"需要补数据模型、异常处理和权限逻辑",humanJudgment:"最终由我确认"},observation:"以前CRUD接口和基础测试主要自己写，现在更多让Claude Code先生成。",grade:"E1_FIRST_HAND",gradeReason:"第一手观察",matchesGap:true,createdAt:"2026-09-13T04:10:00.000Z"},
+      {id:"ev-002",missionId:"mission-gap-001",participantType:"junior_developer_0_3_years",submission:{statement:"",participantType:"junior_developer_0_3_years",experience:"最近7天",task:"数据导出功能AI生成了整套代码",aiRole:"补了分批查询、权限和告警",humanJudgment:"AI擅长典型情况，边界条件需人工"},observation:"工作模式从写全部代码变为审查AI输出。最终2天完成，以前4-5天。",grade:"E1_FIRST_HAND",gradeReason:"第一手观察",matchesGap:true,createdAt:"2026-09-13T04:15:00.000Z"},
+      {id:"ev-003",missionId:"mission-gap-002",participantType:"student_developer",submission:{statement:"",participantType:"student_developer",experience:"最近7天",task:"分页查询接口",aiRole:"遗漏租户过滤",humanJudgment:"补了跨租户测试"},observation:"AI生成了分页查询和参数校验，遗漏了租户过滤",grade:"E2_ARTIFACT_BACKED",gradeReason:"Artifact增强可信度",matchesGap:true,createdAt:"2026-09-13T04:20:00.000Z"}],
+
+
+      knowledgeState:{status:"EARLY_EVIDENCE",evidenceCount:3,supported:[{id:"claim-001",claim:"AI Coding 将初级开发者的角色从代码生产者转变为审查者加边界条件专家",rationale:"多位开发者报告模式转变",sourceRefIds:[],evidenceIds:["ev-001","ev-002"]},{id:"claim-002",claim:"AI 生成的代码以 happy-path 为主，边界条件常被遗漏",rationale:"多位参与者报告边界条件被遗漏",sourceRefIds:[],evidenceIds:["ev-002","ev-003"]}],unsupported:[{id:"claim-003",claim:"AI Coding 导致初级开发者基础技能退化",rationale:"有观点但证据不足",sourceRefIds:[],evidenceIds:[]}],limitations:["当前结论来自少量第一手观察","样本规模有限不能外推"],nextGap:{id:"gap-002",claim:"AI Coding 改变了初级开发者哪些工作？",affectedClaim:"AI 生成的代码以 happy-path 为主",affectedClaimId:"claim-002",whyUnresolved:"缺少具体案例",missingObservation:"遗漏了哪些预期处理的情况？",targetParticipants:["学生开发者","实习生","0-3年开发者"],expectedValue:"分类记录遗漏模式"},updatedAt:"2026-09-13T04:20:00.000Z"},
+      reevaluation:{supportedNow:[{id:"claim-001",claim:"角色转变",rationale:"多位开发者报告",sourceRefIds:[],evidenceIds:["ev-001","ev-002"]}],stillUnsupported:[],limitations:["样本有限","仅验证单个Mission"],knowledgeState:"EARLY_EVIDENCE",whyStateChanged:"Mission mission-gap-001 的 Evidence 属于 E1/E2 第一手观察",updatedAt:"2026-09-13T04:21:00.000Z"},
+      createdAt:"2026-09-13T04:07:00.000Z",
+      updatedAt:"2026-09-13T04:21:00.000Z"
+      },
+      discussions:[
+      {type:"claim",author:"Agent 结构化提取",text:"AI Coding 将初级开发者的角色从代码生产者转变为审查者加边界条件专家",source:"搜索摘要与Evidence"},
+      {type:"observation",author:"实习生 ev-001",text:"以前CRUD接口和基础测试主要自己写，现在更多让Claude Code先生成",source:"本人第一手Observation"},
+      {type:"observation",author:"0-3年开发者 ev-002",text:"工作模式从自己写全部代码变成了先让AI生成再审查修复",source:"本人第一手Observation"},
+      {type:"counterexample",author:"搜索来源",text:"过度依赖AI可能导致基础技能退化，AI生成的代码像快餐",source:"新浪新闻"},
+      {type:"limitation",author:"Agent标注",text:"当前证据样本规模有限（3条第一手Observation）",source:"Evidence Authority"},
+      {type:"opinion",author:"知乎文章",text:"AI不只是助手而是初级同事，写得快但最终仍需人类判断",source:"知乎专栏"}
+      ];
+
+
+      let appState={investigation:JSON.parse(JSON.stringify(MOCK.investigation)),discussions:[...MOCK.discussions],selectedMissionId:null,evidenceCounter:0};
+      const $=(id)=>document.getElementById(id);
+      function gradeLabel(g){const m={E0_OPINION:"E0观点",E1_FIRST_HAND:"E1第一手",E2_ARTIFACT_BACKED:"E2有Artifact"};return m[g]||g}
+      function gradeTag(g){if(g==="E0_OPINION")return"<span class=\"tag amber\">E0观点</span>";if(g==="E1_FIRST_HAND")return"<span class=\"tag green\">E1第一手</span>";if(g==="E2_ARTIFACT_BACKED")return"<span class=\"tag purple\">E2 Artifact</span>";return g}
+
+
+      function statusBadge(s){if(s==="UNRESOLVED")return"<span class=\"status-badge unresolved\">✦ UNRESOLVED</span>";if(s==="EARLY_EVIDENCE")return"<span class=\"status-badge early-evidence\">✦ EARLY_EVIDENCE</span>";if(s==="SUPPORTED_WITH_LIMITATIONS")return"<span class=\"status-badge supported\">✦ SUPPORTED_WITH_LIMITATIONS</span>";return s}
+      function renderKOHeader(){const i=appState.investigation;$("koStatus").className="status-badge "+(i.knowledgeState.status==="UNRESOLVED"?"unresolved":i.knowledgeState.status==="EARLY_EVIDENCE"?"early-evidence":"supported");$("koStatus").textContent="✦ "+i.knowledgeState.status;$("evidenceCount").textContent=i.evidence.length;$("missionCount").textContent=i.missions.length;$("lastUpdated").textContent=new Date(i.updatedAt).toLocaleString("zh-CN")}
+
+
+      function renderB01Known(){const i=appState.investigation;const known=i.evidenceState.known||[];const supported=i.evidenceState.supported||[];$("knownCount").textContent=known.length;let h="";if(known.length===0){h="<p style=\"color:var(--muted);\">暂无已知信息。</p>"}else{h="<ul style=\"margin:0;padding-left:18px;font-size:13px;line-height:1.8;color:var(--sub);\">";known.forEach(k=>{h+="<li>"+k+"</li>"});h+="</ul>"}if(supported.length>0){h+="<div style=\"margin-top:14px;padding-top:14px;border-top:1px solid var(--line);\"><div class=\"card-label\" style=\"margin-bottom:10px;\">Supported Claims（有 Evidence 支持）</div>";supported.forEach(c=>{h+="<div class=\"claim-item\"><div class=\"claim-text\">"+c.claim+"</div><div class=\"claim-meta\"><span>ID: "+c.id+"</span><span>Evidence: "+c.evidenceIds.length+" 条</span></div></div>"});h+="</div>"}$("knownClaims").innerHTML=h}
+
+
+      function renderDisagreements(){const i=appState.investigation;const d=i.evidenceState.disagreements||[];const u=i.evidenceState.unsupported||[];$("disagreementCount").textContent=d.length;let h="";if(d.length===0&&u.length===0){h="<p style=\"color:var(--muted);\">暂无争议。</p>"}else{if(d.length>0){h="<ul style=\"margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.8;color:var(--sub);\">";d.forEach(x=>{h+="<li>"+x+"</li>"});h+="</ul>"}if(u.length>0){h+="<div class=\"card-label\" style=\"margin-bottom:8px;\">Unsupported Claims（尚无足够 Evidence）</div>";u.forEach(c=>{h+="<div class=\"claim-item\"><div class=\"claim-text\">"+c.claim+"</div><div class=\"claim-meta\"><span>ID: "+c.id+"</span></div></div>"})}}$("disagreements").innerHTML=h}
+
+
+      function renderB02Frontier(){const i=appState.investigation;const es=i.evidenceState;const gs=[];if(es.candidateGap)gs.push(es.candidateGap);if(es.nextGap&&es.nextGap.id!==(es.candidateGap||{}).id)gs.push(es.nextGap);$("gapCount").textContent=gs.length;if(gs.length===0){$("frontierGaps").innerHTML="<p style=\"color:var(--muted);\">暂无明确知识缺口。</p>";return}let h="";gs.forEach(g=>{let st="";const s=es.gapSuitability;if(s){if(s.status==="MISSION_READY")st="<span class=\"tag green\">MISSION_READY</span>";else if(s.status==="NEEDS_REFRAMING")st="<span class=\"tag amber\">NEEDS_REFRAMING</span>";else st="<span class=\"tag red\">NOT_SUITABLE</span>"}h+="<div class=\"claim-item\" style=\"border-left:3px solid var(--purple);\"><div style=\"display:flex;align-items:center;gap:8px;margin-bottom:8px;\"><span style=\"font-weight:700;font-size:13px;\">缺口: "+g.id+"</span>"+st+"</div><div class=\"claim-text\" style=\"font-size:13px;margin-bottom:10px;\">"+g.missingObservation+"</div><div class=\"card-label\" style=\"margin-bottom:4px;\">为什么还缺</div><p style=\"font-size:12px;color:var(--sub);margin:0 0 8px;\">"+g.whyUnresolved+"</p><div style=\"display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--sub);\"><span>🎯 目标参与者: "+g.targetParticipants.join("、")+"</span><span>💡 预期价值: "+g.expectedValue+"</span></div><div style=\"margin-top:8px;\"><span class=\"tag blue\">影响Claim: "+g.affectedClaimId+"</span></div></div>"});$("frontierGaps").innerHTML=h}
+
+
+      function renderLimitations(){const i=appState.investigation;const l=i.evidenceState.limitations||i.knowledgeState.limitations||[];if(l.length===0){$("limitations").innerHTML="<p style=\"color:var(--muted);\">暂无限制条件。</p>";return}let h="<ul style=\"margin:0;padding-left:18px;font-size:13px;line-height:1.8;color:var(--sub);\">";l.forEach(x=>{h+="<li>"+x+"</li>"});h+="</ul>";$("limitations").innerHTML=h}
+      function renderB07KnowledgeState(){const i=appState.investigation;const ks=i.knowledgeState;const re=i.reevaluation;let h="<div class=\"two-col\" style=\"margin-bottom:16px;\"><div><div class=\"card-label\">当前状态</div><div style=\"font-size:20px;font-weight:700;margin-bottom:4px;\">"+statusBadge(ks.status)+"</div><div style=\"font-size:12px;color:var(--sub);\">Evidence: "+ks.evidenceCount+" 条</div></div><div><div class=\"card-label\">Claim 统计</div><div style=\"display:flex;gap:16px;font-size:13px;\"><span>Supported: <strong>"+ks.supported.length+"</strong></span><span>Unsupported: <strong>"+ks.unsupported.length+"</strong></span><span>Limitations: <strong>"+ks.limitations.length+"</strong></span></div>"+(re?"<div style=\"font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5;\">上次 Re-evaluation: "+re.whyStateChanged.slice(0,60)+"…</div>":"")+"</div></div><div class=\"provenance-note\"><span>ℹ</span><div>状态来源说明：Supported 不代表普遍真相，Unsupported 不代表虚假。</div></div>";$("knowledgeStatePanel").innerHTML=h}
+
+
+      function renderB03MissionFeed(){const i=appState.investigation;const om=i.missions.filter(m=>m.status==="OPEN");$("openMissionCount").textContent=om.length;if(om.length===0){$("missionFeed").innerHTML="<div class=\"empty-state\"><div class=\"e-icon\">📭</div><p>当前暂无 OPEN 的 Mission。</p></div>";return}let h="<div style=\"display:grid;gap:14px;\">";om.forEach(m=>{h+="<div class=\"mission-card\" onclick=\"openMissionModal(\x27"+m.id+"\x27)\"><div class=\"mission-tags\"><span class=\"tag green\">OPEN</span><span class=\"tag blue\">"+(m.estimatedSeconds||50)+" 秒</span><span class=\"tag muted\">Gap: "+m.evidenceGapId+"</span></div><h4>"+m.title+"</h4><div class=\"mission-desc\">"+m.description.slice(0,120)+"…</div><div class=\"mission-footer\"><span style=\"font-size:12px;color:var(--muted);\">🎯 "+m.qualification.join("、")+"</span><button class=\"btn btn-primary btn-sm\">参与</button></div></div>"});h+="</div>";$("missionFeed").innerHTML=h}
+
+
+      function renderDiscussions(){const items=appState.discussions;if(items.length===0){$("discussionList").innerHTML="<p style=\"color:var(--muted);font-size:13px;\">暂无讨论内容。</p>";return}let h="<div class=\"card\">";items.forEach(d=>{h+="<div class=\"discussion-item\"><div class=\"d-author\"><span class=\"d-type "+d.type+"\">"+d.type+"</span>"+d.author+"</div><div class=\"d-text\">"+d.text+"</div><div style=\"font-size:11px;color:var(--muted);margin-top:4px;\">来源: "+d.source+"</div></div>"});h+="</div>";$("discussionList").innerHTML=h}
+      function renderEvidenceTimeline(){const e=appState.investigation.evidence;$("tlCount").textContent=e.length;if(e.length===0){$("evidenceTimeline").innerHTML="<p style=\"color:var(--muted);font-size:13px;padding-left:24px;\">提交 Evidence 后会显示在这里。</p>";return}let h="";e.forEach((ev,i)=>{h+="<div class=\"tl-item "+(i===e.length-1?"active":"done")+"\"><div class=\"tl-label\">"+gradeTag(ev.grade)+" "+new Date(ev.createdAt).toLocaleString("zh-CN")+"</div><div class=\"tl-desc\">"+ev.observation.slice(0,80)+"…</div><div style=\"display:flex;gap:6px;margin-top:4px;\"><span class=\"tag "+(ev.matchesGap?"green":"amber")+"\">"+(ev.matchesGap?"✓ 匹配 Gap":"✗ 不匹配 Gap")+"</span><span class=\"tag muted\">"+ev.participantType+"</span></div></div>"});$("evidenceTimeline").innerHTML=h}
+      function renderAll(){renderKOHeader();renderB01Known();renderDisagreements();renderB02Frontier();renderLimitations();renderB03MissionFeed();renderB07KnowledgeState();renderDiscussions();renderEvidenceTimeline()}
+
+
+      document.querySelectorAll(".tab").forEach(t=>{t.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.querySelectorAll(".tab-content").forEach(x=>x.style.display="none");const tg=document.getElementById("tab"+t.dataset.tab.charAt(0).toUpperCase()+t.dataset.tab.slice(1));if(tg)tg.style.display="block"})});
+
+
+      function findGapById(gid){const es=appState.investigation.evidenceState;const cs=[es.candidateGap,es.nextGap,es.gapSuitability?.reframedGap].filter(Boolean);return cs.find(g=>g.id===gid)}
+      window.openMissionModal=function(mid){const m=appState.investigation.missions.find(x=>x.id===mid);if(!m)return;appState.selectedMissionId=mid;const g=findGapById(m.evidenceGapId);$("modalMissionTitle").textContent=m.title;$("modalMissionDesc").textContent=m.description;$("modalMissionPurpose").textContent=g?g.missingObservation:"-";$("modalMissionQualification").textContent=m.qualification.join("、");$("modalClaimId").textContent=g?g.affectedClaimId:"-";$("modalGapId").textContent=g?g.id:"-";$("modalMissionStatus").textContent=m.status;$("modalMissionStatus").className="tag "+(m.status==="OPEN"?"green":"muted");document.getElementById("evidenceForm").reset();$("submitStatus").innerHTML="";$("submitEvidenceBtn").disabled=false;$("missionModal").classList.add("open")};
+      window.closeMissionModal=function(){$("missionModal").classList.remove("open")};
+
+
+      window.submitEvidence=async function(e){e.preventDefault();const btn=$("submitEvidenceBtn");const st=$("submitStatus");btn.disabled=true;st.innerHTML="<div class=\"loading\"><div class=\"spinner\"></div>正在校验、评级并重新评估 Knowledge State…</div>";await new Promise(r=>setTimeout(r,1500));try{const f=document.getElementById("evidenceForm");const pt=f.querySelector("#inputParticipant").value;const tf=f.querySelector("#inputTimeframe").value;const tk=f.querySelector("#inputTask").value.trim();const ar=f.querySelector("#inputAiRole").value.trim();const jg=f.querySelector("#inputJudgment").value.trim();const au=f.querySelector("#inputArtifact").value.trim();const m=appState.investigation.missions.find(x=>x.id===appState.selectedMissionId);if(!m)throw Error("Mission not found");const g=findGapById(m.evidenceGapId);if(!g)throw Error("Gap not found");
+
+
+      const hfs=tk.length>=2&&ar.length>=2&&jg.length>=2;const pm=g.targetParticipants.some(t=>pt.includes(t)||t.includes(pt));const mg=hfs&&pm;let gr,grr;if(!hfs){gr="E0_OPINION";grr="只有观点性陈述，没有提供可核验的本人具体任务、AI 贡献和人工判断。"}else{gr="E1_FIRST_HAND";grr="提供了本人具体经历、任务、AI 贡献和人工判断，属于第一手观察。"}if(hfs&&au){gr="E2_ARTIFACT_BACKED";grr="在第一手观察基础上提供了相关 Artifact，可增强该观察的可信度。"}
+
+
+      const id="ev-mock-"+(++appState.evidenceCounter);const now=new Date().toISOString();const obs=[tf,tk,ar,jg].join("；");const rec={id,missionId:m.id,participantType:pt,submission:{statement:"",participantType:pt,experience:tf,task:tk,aiRole:ar,humanJudgment:jg,artifactUrl:au||undefined},observation:obs,grade:gr,gradeReason:grr+" Mission: "+m.title+"。",matchesGap:mg,createdAt:now};appState.investigation.evidence.push(rec);const accepted=mg&&(gr==="E1_FIRST_HAND"||gr==="E2_ARTIFACT_BACKED");const sb=appState.investigation.knowledgeState.status;let sa=sb;let wc="";if(accepted&&mg){if(sb==="UNRESOLVED"){sa="EARLY_EVIDENCE";wc="Mission "+m.title+" 的 Evidence 属于 E1/E2 第一手观察，推进了 Knowledge State。"}else{sa=sb;wc="Evidence 已纳入，当前状态保持不变。"}const tc=appState.investigation.evidenceState.supported.find(c=>c.id===g.affectedClaimId);if(tc)tc.evidenceIds.push(id)}else{if(!mg){wc="Observation 不匹配当前 Evidence Gap，未纳入评估。"}else{wc="Observation 为 E0 观点级别，不能推进 Knowledge State。"}}
+
+
+      appState.investigation.knowledgeState.evidenceCount=appState.investigation.evidence.length;appState.investigation.knowledgeState.status=sa;appState.investigation.knowledgeState.updatedAt=now;appState.investigation.reevaluation={supportedNow:appState.investigation.knowledgeState.supported,stillUnsupported:appState.investigation.knowledgeState.unsupported,limitations:appState.investigation.knowledgeState.limitations,knowledgeState:sa,whyStateChanged:wc,updatedAt:now};appState.investigation.updatedAt=now;let im;if(!accepted){im=mg?"E0 不能推进 Knowledge State":"Observation 不匹配 Evidence Gap"}else{im="Observation accepted. Evidence from "+m.title+" advanced the Knowledge State."}
+
+
+      const rc={evidenceId:id,missionId:m.id,investigationId:appState.investigation.id,accepted,grade:gr,affectedClaimId:g.affectedClaimId,stateBefore:sb,stateAfter:sa,impactSummary:im,stillMissing:appState.investigation.knowledgeState.limitations,createdAt:now};showReceipt(rc);st.innerHTML="<span style=\"color:var(--green);font-weight:600;\">✓ Evidence 提交成功！</span>";closeMissionModal();renderAll()}catch(err){st.innerHTML="<span style=\"color:var(--red);\">✗ "+err.message+"</span>"}finally{btn.disabled=false}}
+
+
+      function showReceipt(rc){$("receiptSubtitle").textContent=rc.accepted?"✓ 你的 Observation 已被采纳，进入评估链路":"✗ 暂未影响结论";$("receiptAccepted").innerHTML=rc.accepted?"<span style=\"color:var(--green);\">accepted ✓ 已进入影响链路</span>":"<span style=\"color:var(--amber);\">rejected ✗ 暂未影响结论</span>";$("receiptGrade").innerHTML=gradeTag(rc.grade);$("receiptGradeReason").textContent=rc.accepted?"E1/E2 第一手 Observation，已纳入 Re-evaluation。":"不满足 E1/E2 条件或不匹配 Gap。";let ct=rc.affectedClaimId;const ac=[...(appState.investigation.evidenceState.supported||[]),...(appState.investigation.evidenceState.unsupported||[])];const cl=ac.find(c=>c.id===rc.affectedClaimId);if(cl)ct=cl.claim.slice(0,60)+"…";$("receiptClaim").textContent=ct;$("receiptStateDelta").innerHTML=statusBadge(rc.stateBefore)+" <span style=\"color:var(--muted);font-size:16px;\">→</span> "+statusBadge(rc.stateAfter);$("receiptSummary").textContent=rc.impactSummary;$("receiptStillMissing").innerHTML=rc.stillMissing.map(m=>"• "+m).join("<br/>");$("receiptModal").classList.add("open")}
+      window.closeReceiptModal=function(){$("receiptModal").classList.remove("open")};
+      document.addEventListener("DOMContentLoaded",()=>{renderAll()});
+    </script>
+  </body>
+</html>

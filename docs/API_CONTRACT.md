@@ -280,10 +280,16 @@ interface Investigation {
 
 | Method | Path                               | Result                                                              |
 | ------ | ---------------------------------- | ------------------------------------------------------------------- |
+| `GET`  | `/api/investigations`              | `200 InvestigationListItem[]`                                       |
 | `POST` | `/api/investigations`              | `201 Investigation`                                                 |
 | `GET`  | `/api/investigations/:id`          | `200 Investigation`                                                 |
 | `POST` | `/api/investigations/:id/missions` | `201 Investigation`；同一 Gap 已存在 Mission 时 `200 Investigation` |
-| `POST` | `/api/missions/:id/evidence`       | `201 Investigation`                                                 |
+| `GET`  | `/api/missions`                    | `200 MissionListItem[]`；支持 `?status=OPEN`                        |
+| `GET`  | `/api/missions/:id`                | `200 { mission: EvidenceMission, evidence: EvidenceRecord[] }`      |
+| `POST` | `/api/missions/:id/evidence`       | `201 { record, receipt, investigation }`                            |
+| `GET`  | `/api/evidence/:id/impact`         | `200 ImpactReceipt`                                                 |
+| POST   | /api/discussions/organize          | 200 { organization: DiscussionOrganization, run: LLMRun }           |
+| GET    | /api/knowledge-objects/:id         | 200 KnowledgeObjectProjection                                       |
 
 ### `POST /api/investigations`
 
@@ -305,9 +311,17 @@ interface Investigation {
 
 只有最终 `MISSION_READY` 的 Gap 会进入 `evidenceState.nextGap`。
 
+### `GET /api/investigations`
+
+当前行为：
+
+- 返回所有 Investigation 的摘要列表。
+- 每个摘要包含 `id`、`question`、`knowledgeState`（状态枚举）、`missionCount`、`evidenceCount`、`createdAt`、`updatedAt`。
+- 不返回 Investigation 完整内容（详情需调用 `GET /api/investigations/:id`）。
+
 ### `GET /api/investigations/:id`
 
-当前返回完整 `Investigation`。这是当前唯一可用的读取接口。
+当前返回完整 `Investigation`，包含 Claim、Gap、Mission、Evidence 和 Knowledge State。
 
 ### `POST /api/investigations/:id/missions`
 
@@ -345,7 +359,39 @@ EvidenceSubmission;
 当前限制：
 
 - Mission 当前只实现内部 `closeMission(...)` transition；没有关闭 HTTP API、重新打开流程或自动关闭策略。
-- `EvidenceRecord` 不重复保存 `investigationId`、`evidenceGapId`、`affectedClaimId`；这些值通过所属 Investigation 和 Mission → Gap → Claim 链稳定推导。
+- `EvidenceRecord` 不重复保存 `investigationId`、`evidenceGapId`、`affectedClaimId`；这些值通过所属 Investigation 和 Mission → Gap → Claim 链稳定推导。### `GET /api/investigations`
+
+当前行为：
+
+- 返回所有 Investigation 的摘要列表。
+- 每个摘要包含 `id`、`question`、`knowledgeState`（状态枚举）、`missionCount`、`evidenceCount`、`createdAt`、`updatedAt`。
+- 不返回 Investigation 完整内容（详情需调用 `GET /api/investigations/:id`）。
+
+### `GET /api/missions`
+
+当前行为：
+
+- 返回所有 Mission 的摘要列表。
+- 支持 `?status=OPEN` 过滤，只返回状态为 `OPEN` 的 Mission。
+- 每个摘要包含 `id`、`investigationId`、`evidenceGapId`、`title`、`status`、`evidenceCount`、`createdAt`。
+- 不返回 Evidence 列表（详情需调用 `GET /api/missions/:id`）。
+
+### `GET /api/missions/:id`
+
+当前行为：
+
+- 返回 `{ mission: EvidenceMission, evidence: EvidenceRecord[], investigationId: string }`。
+- `evidence` 仅包含属于该 Mission 的 Evidence，按 `createdAt` 升序排列。
+- Mission 不存在时返回 `404 NOT_FOUND`。
+
+### `GET /api/evidence/:id/impact`
+
+当前行为：
+
+- 从 Investigation 状态重建单条 Evidence 的 Impact Receipt。
+- 返回 `ImpactReceipt`，包含 `evidenceId`、`missionId`、`investigationId`、`accepted`、`grade`、`affectedClaimId`、`stateBefore`、`stateAfter`、`impactSummary`、`stillMissing`、`createdAt`。
+- Evidence 不存在时返回 `404 NOT_FOUND`。
+- 注意：`stateBefore` 为重建估算值，POST 提交时返回的 receipt 是权威版本。
 
 ## Current Error Contract
 
@@ -380,14 +426,7 @@ INTERNAL_ERROR
 
 ## Target P0 API
 
-| Method | Path                         | Target State                               |
-| ------ | ---------------------------- | ------------------------------------------ |
-| `GET`  | `/api/investigations`        | CURRENT，返回 Investigation 摘要列表       |
-| `GET`  | `/api/investigations/:id`    | CURRENT，返回完整 Investigation            |
-| `GET`  | `/api/missions`              | CURRENT，支持 `?status=OPEN` 过滤          |
-| `GET`  | `/api/missions/:id`          | CURRENT，返回 Mission Detail 含 Evidence   |
-| `POST` | `/api/missions/:id/evidence` | CURRENT，返回 `record` + `receipt`         |
-| `GET`  | `/api/evidence/:id/impact`   | CURRENT，从 Investigation 状态重建 Receipt |
+所有 CURRENT 接口已在上方 `## Current API` 节完整列出。以下仅保留仍属 TARGET P0 的扩展说明。
 
 保留当前写接口以兼容 Golden Demo，不为 REST 对称性增加无必要接口。
 
@@ -473,3 +512,5 @@ Persist
 - Ranking 或积分接口
 
 这些能力需要分别完成产品锁定、Contract First 与 Authority Review，不得提前写入当前 API 或前端 DTO。
+
+DiscussionOrganization additionally accepts optional routing (knowledgeObjectId, confidence 0–1, uncertain, rationale), summary, and missionRecommended. relations defaults to an empty array and contains claimId, relation (SUPPORTS / CHALLENGES / LIMITS / OPENS_QUESTION), and rationale. These are candidate interpretations, not Evidence Grade or Knowledge State decisions.

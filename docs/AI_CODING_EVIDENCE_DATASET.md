@@ -6,22 +6,22 @@
 
 共 **16 条**记录，用于 Golden Case "AI Coding 实际改变了初级开发者哪些工作？"：
 
-| 分类 | 数量 | 说明 |
-|---|---|---|
-| `test_participant` | **7 条** | 本人真实 AI Coding 使用经历 |
-| `synthetic_fixture` | 9 条 | 人工构造，仅用于测试分类器 |
-| `E0_OPINION` | 3 条 | 纯观点，无个人经历 |
-| `E1_FIRST_HAND` | 12 条 | 真实或合成的一手经历 |
-| `E2_ARTIFACT_BACKED` | 1 条 | 带 artifact 的一手经历（synthetic placeholder） |
+| 分类                 | 数量     | 说明                                            |
+| -------------------- | -------- | ----------------------------------------------- |
+| `test_participant`   | **7 条** | 本人真实 AI Coding 使用经历                     |
+| `synthetic_fixture`  | 9 条     | 人工构造，仅用于测试分类器                      |
+| `E0_OPINION`         | 3 条     | 纯观点，无个人经历                              |
+| `E1_FIRST_HAND`      | 12 条    | 真实或合成的一手经历                            |
+| `E2_ARTIFACT_BACKED` | 1 条     | 带 artifact 的一手经历（synthetic placeholder） |
 
 ### 参与者构成
 
-| 身份 | 数量 |
-|---|---|
+| 身份                | 数量                         |
+| ------------------- | ---------------------------- |
 | 初级开发者 (0-3 年) | 8 条（7 real + 1 synthetic） |
-| 实习生 | 3 条（1 real + 2 synthetic） |
-| 学生开发者 | 2 条（synthetic） |
-| 其他 | 3 条（E0 反例） |
+| 实习生              | 3 条（1 real + 2 synthetic） |
+| 学生开发者          | 2 条（synthetic）            |
+| 其他                | 3 条（E0 反例）              |
 
 ## 真实参与者数据（test_participant）
 
@@ -33,14 +33,14 @@
 
 ### 各条重点
 
-| ID | 亮点 |
-|---|---|
-| `ai-coding-real-001` | CRUD 样板代码 + AI 漏掉并发测试 |
-| `ai-coding-real-002` | Copilot 帮定位锁超时 Bug，但仍需本地复现 |
-| `ai-coding-real-003` | Cursor 理解遗留代码，但隐式状态被 AI 遗漏 |
-| `ai-coding-real-004` | AI 做文档/测试草稿，产品语义测试需人工补充 |
-| `ai-coding-real-005` | 工作模式从"自己写"变成"审查+边界条件专家" |
-| `ai-coding-real-006` | 实习生视角：AI 加速 onboarding，但期望值也提高 |
+| ID                   | 亮点                                                                      |
+| -------------------- | ------------------------------------------------------------------------- |
+| `ai-coding-real-001` | CRUD 样板代码 + AI 漏掉并发测试                                           |
+| `ai-coding-real-002` | Copilot 帮定位锁超时 Bug，但仍需本地复现                                  |
+| `ai-coding-real-003` | Cursor 理解遗留代码，但隐式状态被 AI 遗漏                                 |
+| `ai-coding-real-004` | AI 做文档/测试草稿，产品语义测试需人工补充                                |
+| `ai-coding-real-005` | 工作模式从"自己写"变成"审查+边界条件专家"                                 |
+| `ai-coding-real-006` | 实习生视角：AI 加速 onboarding，但期望值也提高                            |
 | `ai-coding-real-007` | 完整综述 + 行业数据佐证（Stack Overflow 2025, JetBrains 2026, METR 2025） |
 
 ## 使用限制

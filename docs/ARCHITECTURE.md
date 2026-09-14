@@ -346,3 +346,80 @@ GOLDEN FIXTURE
 ```
 
 Cache 和 Fixture 必须保留来源标识与 limitations，不得伪装成实时数据。
+
+## 产品架构：AI-native 知识社区
+
+Human Gateway 的前台主语是 `Knowledge Object`，不是 `Investigation`。它是一个长期存在、持续演化的共享认知对象，承载当前知识状态、Claims、Evidence、争议、少数观点、Open Questions、Missions 与 Recent Changes。
+
+```text
+Circle
+└── Knowledge Object
+    ├── Human Discussion
+    ├── Claims / Evidence / Conflicts
+    ├── Knowledge State
+    ├── Open Questions / Evidence Gaps
+    ├── Missions
+    ├── Recent Changes
+    └── Investigations（后台演化过程）
+```
+
+### 对象边界
+
+- `Circle`：社区与导航边界，不拥有知识状态。
+- `Topic`：分类标签，不是知识容器。
+- `Knowledge Object`：长期维护的共享知识容器。
+- `Question`：一次问题输入，可归属 Object、形成 Open Question 或触发 Investigation。
+- `Discussion`：人类自由表达、回答、质疑和补充的原始交流层。
+- `Claim`：可被 Evidence 支持、反驳、限定或更新的知识断言。
+- `Investigation`：一次 Agent 研究、归纳或重新评估过程，不是前台长期对象。
+
+### Discussion → Knowledge State
+
+Agent 可以从讨论中提取候选 Claim、Observation、Counterexample、Limitation 和 Evidence Gap，但不得将讨论数量、热度或多数意见直接等同于事实或共识。原始讨论必须可追溯；结构化归档必须说明其影响的 Claim、证据依据、适用条件与不确定性。冲突和少数观点不得被摘要吞掉。
+
+### Agent 权限边界
+
+Agent 可以组织知识、发现缺口、提出 Mission、评估 Evidence、建议 Claim 影响并生成可解释的 Knowledge State 更新；Agent 不得单独删除反例、宣布争议结束、把多数观点当作事实、抹除历史状态或替用户改变原意。`Knowledge State` 的更新必须保留来源、限制与状态变化解释。
+
+### 36 小时 Golden Demo
+
+比赛 Demo 只需证明一个 AI Coding Knowledge Object 的闭环：人类讨论 → Agent 组织 → Knowledge State / Claims / Gap → Mission → Observation → Re-evaluation → Knowledge Object 更新。现有 Investigation、Evidence Grade、Gap Suitability、Mission 与 Impact Receipt 作为后台 Knowledge Evolution Engine 保留，不在短期内重写为新的领域链路。
+
+## 真实 LLM 运行目标
+
+后端不是静态 Demo 数据服务。最终效果是：输入新的用户问题或讨论后，真实 LLM 参与知识组织；输入新的 Observation 后，真实 LLM 参与 Claim 归因和重新评估。
+
+### LLM 负责的能力
+
+- Knowledge Object routing：判断问题/讨论属于哪个已有 Object，或标记需要人工确认；
+- Discussion extraction：提取 Opinion、Claim Candidate、Observation、Counterexample、Limitation；
+- Claim linking：将结构化内容链接到已有 Claim，不通过展示文本匹配；
+- Gap discovery：发现已有知识仍无法回答的具体缺口；
+- Mission planning：把适合真人参与的 Gap 转换为清晰、可执行的 Mission；
+- Re-evaluation：只评估目标 Mission、Gap 和 Claim 相关 Evidence，并输出状态变化理由。
+
+### LLM 不得绕过的边界
+
+LLM 输出必须经过 schema validation、来源追踪和业务边界检查。LLM 不得直接写入任意 Knowledge State，不得绕过 Evidence Grade、Gap Match、Mission 状态和 Re-evaluation isolation。无效 JSON、超时、限流、上游不可用必须转为明确错误并按 `LIVE → CACHE → GOLDEN_FIXTURE` 回退。
+
+### 推荐后端流水线
+
+```text
+HTTP route
+→ Application orchestration
+→ LLM adapter / Agent action
+→ Contract schema validation
+→ Evidence / Agent / Community rules
+→ Persistence
+→ Knowledge Object projection
+```
+
+LLM adapter 负责供应商协议、超时、限流和响应解析；Agent package 负责领域决策；Evidence package 负责可信度；Community 负责参与与 Mission；Persistence 负责保存运行结果，不负责事实判断。
+
+### LLM 运行记录
+
+每次 LLM 运行至少应记录：`runId`、`agentAction`、`inputRefs`、`model`、`provenance`、`status`、`structuredOutput`、`limitations`、`createdAt`。记录应支持从 Knowledge State 变化回溯到讨论、Evidence 和具体 LLM 运行。
+
+### 真实 LLM 与 Demo Fixture
+
+默认路径为真实 LLM；测试必须使用 deterministic fake adapter，不调用真实模型。现场无可用 LLM 时才使用 CACHE 或 GOLDEN_FIXTURE，并在响应中返回 `provenance` 和 `limitations`。

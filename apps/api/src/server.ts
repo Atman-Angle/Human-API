@@ -8,6 +8,11 @@ import { createRequestHandler, type AppDependencies } from "./app.js";
 import { FileSearchCache } from "./cache/file-search-cache.js";
 import { InMemoryInvestigationRepository } from "./repository.js";
 import { SearchService } from "./search-service.js";
+import {
+  FakeDiscussionOrganizer,
+  FallbackDiscussionOrganizer,
+  OpenAICompatibleDiscussionOrganizer,
+} from "./llm/discussion-organizer.js";
 
 export interface RuntimeOptions {
   accessSecret?: string | undefined;
@@ -51,6 +56,15 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   const dependencies: AppDependencies = {
     repository: new InMemoryInvestigationRepository(),
     searchService,
+    discussionOrganizer: new FallbackDiscussionOrganizer(
+      new OpenAICompatibleDiscussionOrganizer({
+        ...(process.env.LLM_API_KEY ? { apiKey: process.env.LLM_API_KEY } : {}),
+        ...(process.env.LLM_BASE_URL ? { baseUrl: process.env.LLM_BASE_URL } : {}),
+        ...(process.env.LLM_MODEL ? { model: process.env.LLM_MODEL } : {}),
+        timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 30000),
+      }),
+      new FakeDiscussionOrganizer(),
+    ),
   };
 
   return { handler: createRequestHandler(dependencies), dependencies };

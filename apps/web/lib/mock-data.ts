@@ -229,6 +229,9 @@ const makeInvestigation = (
     updatedAt: now,
   },
   createdAt: now,
+  discussions: [],
+  discussionOrganizations: [],
+  llmRuns: [],
   updatedAt: now,
 });
 

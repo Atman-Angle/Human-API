@@ -11,6 +11,7 @@ import {
   ExternalLink,
   FileCheck2,
   Globe2,
+  Info,
   Lightbulb,
   LoaderCircle,
   MessageCircle,
@@ -44,6 +45,7 @@ import {
   listMissions,
 } from "@/lib/api-client";
 import {
+  createMockInvestigation,
   listMockContributions,
   listMockInvestigations,
   mockInvestigationToListItem,
@@ -283,6 +285,7 @@ function FeedHome({
   items,
   loading,
   error,
+  notice,
   onOpen,
   onAsk,
   onMine,
@@ -290,6 +293,7 @@ function FeedHome({
   items: MockFeedItem[];
   loading: boolean;
   error: string | null;
+  notice?: string | null;
   onOpen: (id: string) => void;
   onAsk: () => void;
   onMine: () => void;
@@ -333,6 +337,12 @@ function FeedHome({
             <button type="button" onClick={onAsk}>
               发起新的求证
             </button>
+          </div>
+        ) : null}
+        {notice ? (
+          <div className="feed-notice" role="status">
+            <Info size={17} />
+            <span>{notice}</span>
           </div>
         ) : null}
         {!loading && !error && visibleItems.length === 0 ? (
@@ -1439,6 +1449,7 @@ export default function HomePage() {
   const [askSession, setAskSession] = useState(0);
   const [creatingInvestigation, setCreatingInvestigation] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [feedNotice, setFeedNotice] = useState<string | null>(null);
   const [investigations, setInvestigations] = useState<MockFeedItem[]>(() =>
     listMockInvestigations(),
   );
@@ -1465,6 +1476,10 @@ export default function HomePage() {
     listInvestigations()
       .then((items) => {
         if (!active) return;
+        if (items.length === 0) {
+          setFeedNotice("演示数据 · 后端当前还没有公开求证，先展示 Mock 案例");
+          return;
+        }
         setInvestigations(
           items.map((item) => ({
             ...item,
@@ -1478,11 +1493,13 @@ export default function HomePage() {
             gapText: "查看当前 Evidence Gap",
           })),
         );
+        setFeedNotice(null);
         setPageError(null);
       })
       .catch((error) => {
         if (!active) return;
-        setPageError(getClientErrorMessage(error));
+        setPageError(null);
+        setFeedNotice(`演示数据 · 未连接到求证服务（${getClientErrorMessage(error)}）`);
       })
       .finally(() => {
         if (active) setLoadingInvestigations(false);
@@ -1544,7 +1561,12 @@ export default function HomePage() {
       setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
       router.push(`/investigation/${encodeURIComponent(created.id)}`);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      const created = createMockInvestigation(trimmedQuestion);
+      setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
+      setFeedNotice(
+        `后端未接受这次求证（${getErrorMessage(error)}），已改用本地演示数据。`,
+      );
+      router.push(`/investigation/${encodeURIComponent(created.id)}`);
     } finally {
       setCreatingInvestigation(false);
     }
@@ -1563,6 +1585,7 @@ export default function HomePage() {
         items={investigations}
         loading={loadingInvestigations}
         error={pageError}
+        notice={feedNotice}
         onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
         onAsk={() => setPanel("search")}
         onMine={() => setPanel("mine")}

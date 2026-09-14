@@ -679,6 +679,21 @@ a {
   font-size: 13px;
   font-weight: 700;
 }
+.feed-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border: 1px solid rgba(23, 105, 233, 0.16);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.feed-notice svg {
+  flex: none;
+}
 .composer-overlay {
   position: fixed;
   z-index: 40;

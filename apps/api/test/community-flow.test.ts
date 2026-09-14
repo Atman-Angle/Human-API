@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import {
+  ConversationDraftSchema,
+  EvidenceIntakeResponseSchema,
+  DiscoveryTopicsResponseSchema,
+  KnowledgeObjectProjectionSchema,
   EVIDENCE_GRADE,
   KNOWLEDGE_STATE,
   MISSION_STATUS,
@@ -697,5 +702,342 @@ describe("Golden Community Flow", () => {
     expect(invList.status).toBe(200);
     expect(invList.body.length).toBe(1);
     expect(invList.body[0]?.knowledgeState).toBe(KNOWLEDGE_STATE.EARLY_EVIDENCE);
+  });
+});
+
+describe("A09 read projections and A06 historical receipts", () => {
+  it("returns an empty discovery list and 404 for missing community objects", async () => {
+    const { baseUrl } = await startServer(AI_QUESTION, []);
+    expect((await request<unknown[]>(`${baseUrl}/api/discovery/topics`)).body).toEqual([]);
+    expect((await fetch(`${baseUrl}/api/investigations/missing/community-view`)).status).toBe(404);
+  });
+
+  it("projects existing authority without mutating it, fabricating totals, or flattening provenance", async () => {
+    const { KnowledgeObjectProjectionSchema, DiscoveryTopicsResponseSchema } =
+      await import("@human-api/contracts");
+    const { baseUrl, repository } = await startServer(AI_QUESTION, [
+      "学生和实习生用 AI 生成代码测试，但需要自己检查业务逻辑。",
+    ]);
+    const created = await createInvestigation(baseUrl, AI_QUESTION);
+    await createMission(baseUrl, created.id);
+    const saved = repository.get(created.id)!;
+    saved.searches.zhihu.provenance = SEARCH_PROVENANCE.CACHE;
+    saved.searches.global.provenance = SEARCH_PROVENANCE.GOLDEN_FIXTURE;
+    saved.searches.zhihu.items.push(saved.searches.zhihu.items[0]!);
+    const before = structuredClone(saved);
+    const topics = DiscoveryTopicsResponseSchema.parse(
+      (await request<unknown>(`${baseUrl}/api/discovery/topics`)).body,
+    );
+    expect(topics).toHaveLength(1);
+    expect(topics[0]!.sourceCount).toBe(1);
+    expect(topics[0]!.discussionCount).toBe(0);
+    expect(topics[0]!.activeInvitation?.id).toBe(saved.missions[0]!.id);
+    expect(topics[0]!.provenance).toEqual({ zhihu: "CACHE", global: "GOLDEN_FIXTURE" });
+    const view = KnowledgeObjectProjectionSchema.parse(
+      (await request<unknown>(`${baseUrl}/api/investigations/${created.id}/community-view`)).body,
+    );
+    expect(view.summary.consensus).toEqual(saved.evidenceState.known);
+    expect(view.summary.disagreements).toEqual(saved.evidenceState.disagreements);
+    expect(view.summary.unknowns).toContain(saved.knowledgeState.nextGap!.missingObservation);
+    expect(new Set(view.evidenceGaps.map((gap) => gap.id)).size).toBe(view.evidenceGaps.length);
+    expect((await request<unknown>(`${baseUrl}/api/knowledge-objects/${created.id}`)).body).toEqual(
+      view,
+    );
+    expect(saved).toEqual(before);
+    saved.missions[0]!.status = MISSION_STATUS.CLOSED;
+    const closed = DiscoveryTopicsResponseSchema.parse(
+      (await request<unknown>(`${baseUrl}/api/discovery/topics`)).body,
+    );
+    expect(closed[0]!.activeInvitation).toBeUndefined();
+  });
+
+  it("keeps the submitted receipt unchanged after later submissions and state changes", async () => {
+    const { baseUrl, repository } = await startServer(AI_QUESTION, [
+      "学生和实习生用 AI 生成代码测试，但需要自己检查业务逻辑。",
+    ]);
+    const created = await createInvestigation(baseUrl, AI_QUESTION);
+    const withMission = await createMission(baseUrl, created.id);
+    const submit = (statement: string) =>
+      fetch(`${baseUrl}/api/missions/${withMission.missions[0]!.id}/evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statement }),
+      });
+    const first = await (await submit("我认为 AI 很有用")).json();
+    await submit("AI 总有一天会替代所有人");
+    const saved = repository.get(created.id)!;
+    saved.knowledgeState.status = KNOWLEDGE_STATE.SUPPORTED_WITH_LIMITATIONS;
+    saved.knowledgeState.limitations.push("Later limitation must not leak into older receipts");
+    const read = await request<unknown>(`${baseUrl}/api/evidence/${first.record.id}/impact`);
+    expect(read.status).toBe(200);
+    expect(read.body).toEqual(first.receipt);
+    expect(saved.impactReceipts).toHaveLength(2);
+    saved.impactReceipts = [];
+    expect((await fetch(`${baseUrl}/api/evidence/${first.record.id}/impact`)).status).toBe(404);
+  });
+});
+
+describe("Product Direction v3 conversation demo", () => {
+  const samples = JSON.parse(
+    readFileSync(
+      new URL("../../../fixtures/golden-case/conversation-samples.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { label: string; outcome: string; turns: string[] }[];
+  const post = (body: unknown): RequestInit => ({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  async function setup() {
+    const runtime = await startServer(AI_QUESTION, [
+      "学生和实习生用 AI 生成代码测试，但需要自己检查业务逻辑。",
+    ]);
+    const prepared = await request<Investigation>(`${runtime.baseUrl}/api/demo/prepare`, post({}));
+    const mission = prepared.body.missions[0];
+    if (!mission) throw new Error("missing demo invitation");
+    return {
+      ...runtime,
+      investigation: prepared.body,
+      mission,
+      url: `${runtime.baseUrl}/api/missions/${mission.id}/conversation`,
+    };
+  }
+  it("prepares one topic and invitation even under concurrent homepage loads", async () => {
+    const { baseUrl, repository } = await startServer(AI_QUESTION, [
+      "学生和实习生用 AI 生成代码测试，但需要自己检查业务逻辑。",
+    ]);
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        request<Investigation>(`${baseUrl}/api/demo/prepare`, post({})),
+      ),
+    );
+    expect(new Set(results.map((item) => item.body.id)).size).toBe(1);
+    expect(repository.listInvestigations()).toHaveLength(1);
+    expect(results[0]?.body.missions).toHaveLength(1);
+    const topics = await request<unknown>(`${baseUrl}/api/discovery/topics`);
+    expect(DiscoveryTopicsResponseSchema.parse(topics.body)[0]?.activeInvitation).toBeDefined();
+  });
+  it("runs accepted, rejected, accepted-unchanged and preserves authoritative receipts on refresh", async () => {
+    const { url, baseUrl, investigation } = await setup();
+    for (const sample of samples) {
+      const opening = await request<unknown>(url, post({ answers: [] }));
+      expect(ConversationDraftSchema.parse(opening.body).question).toContain("反例");
+      const followup = await request<unknown>(url, post({ answers: sample.turns.slice(0, 1) }));
+      const draft = ConversationDraftSchema.parse(followup.body);
+      expect(draft.question).toBeDefined();
+      if (sample.outcome !== "rejected") {
+        expect(draft.question).toContain("检查");
+        expect(draft.question).not.toContain("你当时的身份");
+      }
+      const preview = await request<unknown>(url, post({ answers: sample.turns }));
+      const finalDraft = ConversationDraftSchema.parse(preview.body);
+      expect(finalDraft.question).toBeUndefined();
+      expect(finalDraft.summary).toBe(sample.turns.join("\n"));
+      const before = await request<Investigation>(
+        `${baseUrl}/api/investigations/${investigation.id}`,
+      );
+      const countBefore = before.body.evidence.length;
+      const result = await request<unknown>(
+        `${url}/confirm`,
+        post({
+          confirmed: true,
+          summary: finalDraft.summary,
+          demoSample: true,
+          grade: "E2_ARTIFACT_BACKED",
+          affectedClaimId: "forged",
+        }),
+      );
+      expect(result.status).toBe(201);
+      const intake = EvidenceIntakeResponseSchema.parse(result.body);
+      expect(intake.investigation.evidence).toHaveLength(countBefore + 1);
+      expect(intake.record.submission.demoSample).toBe(true);
+      expect(intake.receipt.accepted).toBe(sample.outcome !== "rejected");
+      expect(intake.receipt.stateBefore === intake.receipt.stateAfter).toBe(
+        sample.outcome !== "accepted",
+      );
+      expect(intake.receipt.contribution?.observation).toBe(
+        sample.outcome === "rejected" ? undefined : finalDraft.summary,
+      );
+      expect(intake.receipt.contribution?.boundary).toContain("不能证明普遍规律");
+      expect(intake.receipt.contribution?.explanation).toContain(
+        sample.outcome === "rejected"
+          ? "未"
+          : sample.outcome === "accepted"
+            ? "发生了变化"
+            : "没有变化",
+      );
+      expect(intake.receipt.grade).not.toBe(EVIDENCE_GRADE.E2_ARTIFACT_BACKED);
+      expect(intake.receipt.affectedClaimId).not.toBe("forged");
+      const refreshed = await request<unknown>(
+        `${baseUrl}/api/knowledge-objects/${investigation.id}`,
+      );
+      expect(KnowledgeObjectProjectionSchema.parse(refreshed.body).impactReceipts.at(-1)).toEqual(
+        intake.receipt,
+      );
+      const reloadedReceipt = await request<unknown>(
+        `${baseUrl}/api/evidence/${intake.record.id}/impact`,
+      );
+      expect(reloadedReceipt.body).toEqual(intake.receipt);
+    }
+  });
+  it("drafts and cancellation never write; edited final summary is the only evaluated text", async () => {
+    const { url, repository, investigation } = await setup();
+    await request(url, post({ answers: samples[0]?.turns }));
+    expect(repository.get(investigation.id)?.evidence).toHaveLength(0);
+    expect(
+      (await request(`${url}/confirm`, post({ confirmed: false, summary: "拒绝摘要" }))).status,
+    ).toBe(400);
+    expect(repository.get(investigation.id)?.evidence).toHaveLength(0);
+    const result = await request<unknown>(
+      `${url}/confirm`,
+      post({ confirmed: true, summary: "我没有亲身经历，只是觉得 AI 很好。" }),
+    );
+    const intake = EvidenceIntakeResponseSchema.parse(result.body);
+    expect(intake.receipt.accepted).toBe(false);
+    expect(intake.record.submission.humanJudgment).toBeUndefined();
+    expect(intake.record.observation).not.toContain("权限边界");
+  });
+  it("prioritizes at most two concrete missing contexts instead of collecting a profile", async () => {
+    const { url } = await setup();
+    const draft = ConversationDraftSchema.parse(
+      (await request(url, post({ answers: ["我想讲一次自己的经历。"] }))).body,
+    );
+    expect(draft.question).toContain("具体做的任务");
+    expect(draft.question).toContain("如何检查");
+    expect(draft.question).not.toContain("你当时的身份");
+    expect(draft.question).not.toContain("发生的时间");
+    const next = ConversationDraftSchema.parse(
+      (
+        await request(
+          url,
+          post({
+            answers: [
+              "我想讲一次自己的经历。",
+              "上周我在项目里编写测试，AI 生成用例。我检查并决定不采用结果。",
+            ],
+          }),
+        )
+      ).body,
+    );
+    expect(next.question).toContain("你当时的身份");
+    expect(next.question).not.toContain("如何检查");
+    expect(next.question).not.toContain("具体做的任务");
+  });
+  it("stops at two follow-ups, honors withholding and rejects closed or missing invitations", async () => {
+    const { url, repository, investigation, mission } = await setup();
+    const withheld = ConversationDraftSchema.parse(
+      (await request(url, post({ answers: ["不方便说"] }))).body,
+    );
+    expect(withheld.question).toBeUndefined();
+    const max = ConversationDraftSchema.parse(
+      (await request(url, post({ answers: ["我在项目使用 AI", "我是实习生", "不记得细节"] }))).body,
+    );
+    expect(max.question).toBeUndefined();
+    expect(max.followUpCount).toBeLessThanOrEqual(2);
+    expect((await request(url, post({ answers: ["1", "2", "3", "4"] }))).status).toBe(400);
+    expect((await request(url.replace(mission.id, "missing"), post({ answers: [] }))).status).toBe(
+      404,
+    );
+    const stored = repository.get(investigation.id);
+    if (!stored?.missions[0]) throw new Error("missing stored mission");
+    stored.missions[0].status = MISSION_STATUS.CLOSED;
+    expect((await request(url, post({ answers: [] }))).status).toBe(409);
+    expect(
+      (await request(`${url}/confirm`, post({ confirmed: true, summary: "不能写入" }))).status,
+    ).toBe(409);
+    expect(stored.evidence).toHaveLength(0);
+  });
+});
+
+describe("Community Chat Spec HTTP loop", () => {
+  it("routes chat through proposal, discovery, participation, maintenance and activity", async () => {
+    const { baseUrl, repository } = await startServer(
+      "复杂问题：AI 是否改变初级开发者的工作方式？",
+      ["一手经验：需要人工检查业务逻辑。"],
+    );
+    const post = (body: unknown): RequestInit => ({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const route = await request<{ kind: string; question?: string }>(
+      `${baseUrl}/api/chat/route`,
+      post({ message: "这是一个复杂问题：AI 是否改变初级开发者的工作方式以及边界和证据？" }),
+    );
+    expect(route.body.kind).toBe("CREATE_PROPOSAL");
+    const proposal = await request<{ proposalId: string }>(
+      `${baseUrl}/api/investigations/proposals`,
+      post({ question: route.body.question }),
+    );
+    expect(proposal.status).toBe(201);
+    const confirmed = await request<Investigation>(
+      `${baseUrl}/api/investigations/proposals/${proposal.body.proposalId}/confirm`,
+      post({}),
+    );
+    expect(confirmed.status).toBe(201);
+    const id = confirmed.body.id;
+    expect((await request<unknown>(`${baseUrl}/api/discovery/topics`)).status).toBe(200);
+    const participation = await request<{ intent: string }>(
+      `${baseUrl}/api/investigations/${id}/participation`,
+      post({ message: "我补充一个个人经历和观察案例" }),
+    );
+    expect(["EVIDENCE_SUBMISSION", "QUESTION"]).toContain(participation.body.intent);
+    const maintenance = await request<{ runId: string }>(
+      `${baseUrl}/api/investigations/${id}/maintenance`,
+      post({}),
+    );
+    expect(maintenance.status).toBe(200);
+    expect(
+      (await request<unknown>(`${baseUrl}/api/investigations/${id}/maintenance-runs`)).status,
+    ).toBe(200);
+    const activity = await request<Array<{ eventId: string; createdAt: string }>>(
+      `${baseUrl}/api/investigations/${id}/activity`,
+    );
+    expect(activity.status).toBe(200);
+    expect(
+      activity.body.every(
+        (event, index) => index === 0 || event.createdAt >= activity.body[index - 1]!.createdAt,
+      ),
+    ).toBe(true);
+    expect(repository.get(id)).toBeDefined();
+  });
+});
+
+describe("Agent governance invariants", () => {
+  it("keeps discussion non-evidence and maintenance idempotent", async () => {
+    const { baseUrl, repository } = await startServer(AI_QUESTION, [
+      "真实开发经历与人工检查业务逻辑。",
+    ]);
+    const post = (body: unknown): RequestInit => ({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const prepared = await request<Investigation>(`${baseUrl}/api/demo/prepare`, post({}));
+    const before = prepared.body.knowledgeState.status;
+    const discussion = await request<{ intent: string }>(
+      `${baseUrl}/api/investigations/${prepared.body.id}/participation`,
+      post({ message: "我认为 AI 一定会让所有初级开发者失业。" }),
+    );
+    expect(discussion.body.intent).toBe("QUESTION");
+    const stored = repository.get(prepared.body.id);
+    expect(stored?.evidence).toHaveLength(0);
+    expect(stored?.knowledgeState.status).toBe(before);
+    const first = await request<{ createdMissionIds: string[] }>(
+      `${baseUrl}/api/investigations/${prepared.body.id}/maintenance`,
+      post({}),
+    );
+    const second = await request<{ createdMissionIds: string[] }>(
+      `${baseUrl}/api/investigations/${prepared.body.id}/maintenance`,
+      post({}),
+    );
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(
+      repository.get(prepared.body.id)?.missions.filter((m) => m.status === "OPEN"),
+    ).toHaveLength(1);
+    expect(second.body).toBeDefined();
+    expect(repository.listMaintenanceRuns(prepared.body.id)).toHaveLength(2);
   });
 });

@@ -1,221 +1,289 @@
 "use client";
-
-import { CircleAlert, LoaderCircle, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, Bot, ExternalLink, LoaderCircle } from "lucide-react";
 import type {
-  EvidenceMission,
-  EvidenceRecord,
-  EvidenceSubmission,
+  EvidenceIntakeResponse,
   ImpactReceipt,
-  Investigation,
-  KnowledgeStateStatus,
+  KnowledgeObjectProjection,
 } from "@human-api/contracts";
-import { getMockInvestigation } from "@/lib/mock-data";
+import { getKnowledgeObject } from "@/lib/api-client";
 import {
-  getInvestigation,
-  submitEvidence,
-  createMission,
-  organizeDiscussion,
-} from "@/lib/api-client";
-import { AppHeader, InvestigationView, MissionDrawer, getClientErrorMessage } from "@/app/page";
+  CommunityHeader,
+  ConversationDrawer,
+  Receipt,
+  SourceMode,
+  Understanding,
+  errorMessage,
+  knowledgeLabels,
+} from "@/app/community-ui";
 
 export default function InvestigationClient({ investigationId }: { investigationId: string }) {
-  const router = useRouter();
-  const [investigation, setInvestigation] = useState<Investigation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeMission, setActiveMission] = useState<EvidenceMission | null>(null);
-  const [creatingMission, setCreatingMission] = useState(false);
-  const [submittingEvidence, setSubmittingEvidence] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [missionError, setMissionError] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<{
-    record: EvidenceRecord;
-    receipt: ImpactReceipt;
-    before: KnowledgeStateStatus;
-  } | null>(null);
-
+  const [view, setView] = useState<KnowledgeObjectProjection | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
+  const [receipt, setReceipt] = useState<ImpactReceipt | null>(null);
+  const [receiptDemo, setReceiptDemo] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
-
-    getInvestigation(investigationId)
+    getKnowledgeObject(investigationId)
       .then((result) => {
-        if (!cancelled) setInvestigation(result);
-      })
-      .catch(() => {
-        const result = getMockInvestigation(investigationId);
         if (!cancelled) {
-          if (result) setInvestigation(structuredClone(result));
-          else setPageError("没有找到对应的求证。");
+          setView(result);
+          setReceipt(result.impactReceipts.at(-1) ?? null);
+          setReceiptDemo(
+            Boolean(
+              result.evidence.find(
+                (record) => record.id === result.impactReceipts.at(-1)?.evidenceId,
+              )?.submission.demoSample,
+            ),
+          );
+          setError(null);
         }
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((e) => {
+        if (!cancelled) setError(errorMessage(e));
       });
     return () => {
       cancelled = true;
     };
-  }, [investigationId]);
-
-  async function handleOrganizeDiscussion(discussionId: string) {
-    if (!investigation) return;
-    setMissionError(null);
-    try {
-      const discussion = investigation.discussions.find((item) => item.id === discussionId);
-      if (!discussion) return;
-      const organization = await organizeDiscussion(discussion);
-      setInvestigation((current) =>
-        current
-          ? {
-              ...current,
-              discussionOrganizations: [
-                ...current.discussionOrganizations.filter(
-                  (item) => item.discussionId !== discussionId,
-                ),
-                organization,
-              ],
-            }
-          : current,
-      );
-    } catch (error) {
-      setMissionError(getClientErrorMessage(error));
-    }
+  }, [investigationId, attempt]);
+  function complete(result: EvidenceIntakeResponse) {
+    setJoining(false);
+    setReceipt(result.receipt);
+    setReceiptDemo(Boolean(result.record.submission.demoSample));
+    setAttempt((v) => v + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
-
-  async function handleJoinMission() {
-    if (!investigation) return;
-    setCreatingMission(true);
-    setPageError(null);
-    try {
-      const gapId = investigation.evidenceState.nextGap?.id;
-      const updated = await createMission(investigation.id, gapId);
-      const existing = updated.missions.find((item) => item.evidenceGapId === gapId);
-      if (!existing) throw new Error("Mock Mission 创建失败。");
-      setInvestigation(updated);
-      const mission = existing;
-      if (!mission) throw new Error("后端没有返回可参与的 Mission。");
-      setActiveMission(mission);
-    } catch (error) {
-      setPageError(getClientErrorMessage(error));
-    } finally {
-      setCreatingMission(false);
-    }
-  }
-
-  async function handleSubmitEvidence(submission: EvidenceSubmission) {
-    if (!investigation || !activeMission) return;
-    setSubmittingEvidence(true);
-    setMissionError(null);
-    const before = investigation.knowledgeState.status;
-    const existingIds = new Set(investigation.evidence.map((item) => item.id));
-    try {
-      const result = await submitEvidence(activeMission.id, submission);
-      const record =
-        result.record ??
-        [...result.investigation.evidence].reverse().find((item) => !existingIds.has(item.id));
-      setInvestigation(result.investigation);
-      setActiveMission(null);
-      if (record) setOutcome({ record, receipt: result.receipt, before });
-      window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 80);
-    } catch (error) {
-      setMissionError(getClientErrorMessage(error));
-    } finally {
-      setSubmittingEvidence(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="app-shell">
-        <AppHeader
-          onReset={() => router.push("/")}
-          hasInvestigation
-          onSearch={() => router.push("/#search")}
-          onMyInvestigations={() => router.push("/#mine")}
-          activeNav="home"
-        />
-        <main className="workspace-page workspace-loading">
-          <div className="loading-card" aria-live="polite">
-            <LoaderCircle className="spin" size={22} />
-            <span>正在恢复这次求证…</span>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (!investigation) {
-    return (
-      <div className="app-shell">
-        <AppHeader
-          onReset={() => router.push("/")}
-          hasInvestigation
-          onSearch={() => router.push("/#search")}
-          onMyInvestigations={() => router.push("/#mine")}
-          activeNav="home"
-        />
-        <main className="workspace-page workspace-loading">
-          <div className="loading-card loading-card-error" role="alert">
-            <CircleAlert size={22} />
-            <div>
-              <strong>这次求证暂时打不开</strong>
-              <p>{pageError ?? "没有找到对应的 Investigation。"}</p>
-              <button className="primary-button" type="button" onClick={() => router.refresh()}>
-                重试加载
-              </button>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
+  const invitationGap = view?.evidenceGaps.find(
+    (gap) => gap.id === view.activeInvitation?.evidenceGapId,
+  );
   return (
     <div className="app-shell">
-      <AppHeader
-        onReset={() => router.push("/")}
-        hasInvestigation
-        onSearch={() => router.push("/#search")}
-        onMyInvestigations={() => router.push("/#mine")}
-        activeNav="home"
-      />
-      <div className="knowledge-object-link-bar">
-        <span>查看 Knowledge Object 服务端投影</span>
-        <button
-          className="quiet-button"
-          type="button"
-          onClick={() => router.push(`/knowledge-object/${encodeURIComponent(investigation.id)}`)}
-        >
-          打开 Knowledge Object
-        </button>
-      </div>
-      `r`n{" "}
-      <InvestigationView
-        investigation={investigation}
-        onJoin={handleJoinMission}
-        onOrganizeDiscussion={handleOrganizeDiscussion}
-        creatingMission={creatingMission}
-        outcome={outcome}
-        onDismissOutcome={() => setOutcome(null)}
-      />
-      {pageError ? (
-        <div className="floating-error" role="alert">
-          <CircleAlert size={17} />
-          <span>{pageError}</span>
-          <button type="button" onClick={() => setPageError(null)} aria-label="关闭错误">
-            <X size={16} />
-          </button>
-        </div>
-      ) : null}
-      {activeMission ? (
-        <MissionDrawer
-          mission={activeMission}
-          onClose={() => setActiveMission(null)}
-          onSubmit={handleSubmitEvidence}
-          submitting={submittingEvidence}
-          error={missionError}
-        />
-      ) : null}
+      <CommunityHeader />
+      <main className="hg-page hg-detail">
+        <Link href="/" className="hg-back">
+          ← 返回 Agent 发现
+        </Link>
+        {error && (
+          <div className="hg-error" role="alert">
+            <p>{error}</p>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => setAttempt((v) => v + 1)}
+            >
+              重试
+            </button>
+          </div>
+        )}
+        {!view && !error && (
+          <div className="hg-loading">
+            <LoaderCircle className="spin" />
+            正在读取公开讨论与知识边界…
+          </div>
+        )}
+        {view && (
+          <>
+            <header className="hg-detail-header">
+              <span className="hg-eyebrow">AI CODING · 持续共同理解的问题</span>
+              <h1>{view.question}</h1>
+              <p>{knowledgeLabels[view.knowledgeState.status]}。公开讨论是起点，不是最终答案。</p>
+              <div className="hg-source-row">
+                <span>知乎：</span>
+                <SourceMode mode={view.provenance.search.zhihu} />
+                <span>全网：</span>
+                <SourceMode mode={view.provenance.search.global} />
+              </div>
+            </header>
+            {receipt && <Receipt receipt={receipt} demoSample={receiptDemo} />}
+            <section className="hg-discussions">
+              <div className="hg-section-heading">
+                <h2>先听听人们怎么说</h2>
+                <span>{view.sources.length} 条公开来源 · 以下是原始内容摘录，不代表平台认同</span>
+              </div>
+              {view.sources.slice(0, 3).map((source) => (
+                <article className="hg-source" key={`${source.provider}:${source.contentId}`}>
+                  <div className="hg-author">
+                    <span className="hg-avatar">{(source.authorName ?? "公").slice(0, 1)}</span>
+                    <div>
+                      <strong>{source.authorName || "公开来源"}</strong>
+                      <small>
+                        {source.provider === "ZHIHU" ? "知乎公开内容" : "全网公开内容"} ·{" "}
+                        {source.publishedAt
+                          ? new Date(source.publishedAt).toLocaleDateString("zh-CN")
+                          : "时间未提供"}
+                      </small>
+                    </div>
+                  </div>
+                  <h3>{source.title}</h3>
+                  <p className="hg-excerpt">{source.excerpt}</p>
+                  <a className="hg-source-link" href={source.url} target="_blank" rel="noreferrer">
+                    查看原始来源 <ExternalLink size={13} />
+                  </a>
+                </article>
+              ))}
+              {view.sources.length > 3 && (
+                <details className="hg-more-sources">
+                  <summary>查看另外 {view.sources.length - 3} 条来源</summary>
+                  {view.sources.slice(3).map((source) => (
+                    <p key={`${source.provider}:${source.contentId}`}>
+                      <a href={source.url} target="_blank" rel="noreferrer">
+                        {source.title} ↗
+                      </a>
+                    </p>
+                  ))}
+                </details>
+              )}
+              {view.discussions.map((discussion) => (
+                <article className="hg-source" key={discussion.id}>
+                  <strong>{discussion.authorLabel ?? "参与者"}</strong>
+                  <p>{discussion.content}</p>
+                  <small>用户提交的讨论 · 尚不等于已采纳证据</small>
+                </article>
+              ))}
+              {!view.sources.length && !view.discussions.length && (
+                <p>当前尚未获得可展示的公开讨论，不编造社区声音。</p>
+              )}
+            </section>
+            <section className="hg-agent-organization">
+              <div className="hg-section-heading">
+                <h2>
+                  <Bot size={21} /> Agent 把讨论整理成了这些
+                </h2>
+                <span>规则整理 · 不是实时 LLM 声明</span>
+              </div>
+              <Understanding summary={view.summary} />
+              <h3>这些判断依据什么？</h3>
+              <p className="hg-note">
+                以下是服务端已有判断与引用，不是前端新生成的结论。引用相关不等于原文已证明判断。
+              </p>
+              {view.claims.map((claim) => (
+                <article className="hg-source" key={claim.id}>
+                  <p>
+                    <strong>{claim.claim}</strong>
+                  </p>
+                  <p>{claim.rationale}</p>
+                  <details>
+                    <summary>查看对应公开来源与已记录经历</summary>
+                    {view.sources
+                      .filter((source) => claim.sourceRefIds.includes(source.id))
+                      .map((source) => (
+                        <div key={source.id}>
+                          <a href={source.url} target="_blank" rel="noreferrer">
+                            {source.title || "查看原始来源"}
+                          </a>
+                          <blockquote>{source.excerpt}</blockquote>
+                        </div>
+                      ))}
+                    {view.evidence
+                      .filter((record) => claim.evidenceIds.includes(record.id))
+                      .map((record) => (
+                        <blockquote key={record.id}>
+                          {record.submission.demoSample
+                            ? "合成演示经历："
+                            : "用户确认、未经独立核验："}
+                          {record.submission.statement}
+                        </blockquote>
+                      ))}
+                    {!claim.sourceRefIds.length && !claim.evidenceIds.length && (
+                      <p>当前没有可追溯引用，不把这条判断当作已证实事实。</p>
+                    )}
+                  </details>
+                </article>
+              ))}
+              <details className="hg-boundaries">
+                <summary>这些理解有什么边界？</summary>
+                <ul>
+                  {view.summary.limitations.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </details>
+            </section>
+            <section className="hg-invitation">
+              <span className="hg-eyebrow">一份面向亲历者的邀请</span>
+              <h2>只说你经历过的一次，不必代表所有人。</h2>
+              <p>
+                {view.activeInvitation?.description ??
+                  "当前没有可提交的开放邀请。你仍然可以查看已有讨论和贡献。"}
+              </p>
+              {invitationGap && (
+                <div>
+                  <h3>为什么需要你的经历？</h3>
+                  <p>{invitationGap.whyUnresolved}</p>
+                  <p>
+                    <strong>想补上的具体信息：</strong>
+                    {invitationGap.missingObservation}
+                  </p>
+                  <p className="hg-note">{invitationGap.expectedValue}</p>
+                </div>
+              )}
+              {view.activeInvitation && (
+                <>
+                  <p className="hg-note">
+                    适合：{view.activeInvitation.qualification.join("、")}
+                    。支持、反例、没变化都欢迎。
+                  </p>
+                  <button className="primary-button" type="button" onClick={() => setJoining(true)}>
+                    分享我的经历 <ArrowRight size={17} />
+                  </button>
+                  <small>自然对话 → 确认摘要 → 服务端评估 → 贡献回执</small>
+                </>
+              )}
+            </section>
+            {view.evidence.length > 0 && (
+              <section className="hg-evidence" id="community-contributions">
+                <h2>共同理解留下了哪些新依据</h2>
+                <p className="hg-note">
+                  这里记录每次贡献的处理结果，不把新增记录等同于新的共识。用户确认不等于独立核验。
+                </p>
+                {view.evidence.map((record) => (
+                  <article key={record.id} className="hg-source">
+                    <span className="hg-eyebrow">
+                      {record.submission.demoSample
+                        ? "GOLDEN_FIXTURE · 合成演示示例"
+                        : "用户确认的经历 · 非独立核验"}
+                    </span>
+                    <p>{record.submission.statement}</p>
+                    {view.impactReceipts.find((item) => item.evidenceId === record.id)
+                      ?.contribution && (
+                      <p>
+                        {
+                          view.impactReceipts.find((item) => item.evidenceId === record.id)
+                            ?.contribution?.explanation
+                        }
+                      </p>
+                    )}
+                    <small>
+                      {view.impactReceipts.find((item) => item.evidenceId === record.id)?.accepted
+                        ? "已纳入本次缺口的证据"
+                        : "暂未纳入证据"}
+                    </small>
+                  </article>
+                ))}
+              </section>
+            )}
+            <details className="hg-technical">
+              <summary>技术与审计详情：Claims、Evidence、来源与评估</summary>
+              <pre>{JSON.stringify(view, null, 2)}</pre>
+            </details>
+            <footer className="hg-footer">
+              刷新读取服务端保存的状态与回执。演示数据保存在 API 内存中，服务重启会重置。
+              <br />
+              最后更新：{new Date(view.updatedAt).toLocaleString("zh-CN")}
+            </footer>
+            {joining && view.activeInvitation && (
+              <ConversationDrawer
+                mission={view.activeInvitation}
+                onClose={() => setJoining(false)}
+                onComplete={complete}
+              />
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
 }

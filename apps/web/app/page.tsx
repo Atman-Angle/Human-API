@@ -59,22 +59,57 @@ const GOLDEN_QUESTION = "AI Coding 实际改变了初级开发者哪些工作？
 const searchExamples = [
   { label: "简单问题 · 直接回复", question: "HTTP 404 状态码是什么意思？", tone: "simple" },
   { label: "已有对应帖子", question: "AI Coding 会让初级程序员失业吗？", tone: "existing" },
-  { label: "已有圈子 · 没有帖子", question: "AI Agent 会如何改变独立游戏开发者的日常工作？", tone: "circle" },
-  { label: "没有圈子 · 没有帖子", question: "火星基地长期沙尘暴会如何影响普通人的日常生活？", tone: "new-circle" },
+  {
+    label: "已有圈子 · 没有帖子",
+    question: "AI Agent 会如何改变独立游戏开发者的日常工作？",
+    tone: "circle",
+  },
+  {
+    label: "没有圈子 · 没有帖子",
+    question: "火星基地长期沙尘暴会如何影响普通人的日常生活？",
+    tone: "new-circle",
+  },
 ] as const;
 
 type SearchRoute = "simple" | "existing" | "circle" | "new-circle";
 function getSearchRoute(question: string): SearchRoute {
-  if (/是什么|什么意思|代表什么|怎么用|定义/i.test(question) && !/会不会|是否|影响|经历|如何改变/i.test(question)) return "simple";
+  if (
+    /是什么|什么意思|代表什么|怎么用|定义/i.test(question) &&
+    !/会不会|是否|影响|经历|如何改变/i.test(question)
+  )
+    return "simple";
   if (/AI Coding|初级程序员|AI学习/i.test(question)) return "existing";
   if (/AI Agent|独立游戏|游戏开发/i.test(question)) return "circle";
   return "new-circle";
 }
 function getSearchStages(route: SearchRoute): string[] {
   if (route === "simple") return ["理解问题", "判断为简单问题", "直接生成回复", "展示简洁答案"];
-  if (route === "existing") return ["理解问题", "匹配对应圈子", "进入圈内查找帖子", "找到可回复帖子", "检索补充内容", "展示已有帖子"];
-  if (route === "circle") return ["理解问题", "匹配对应圈子", "进入圈内查找帖子", "确认没有可回复帖子", "检索知乎内容", "整合观点并创建新帖"];
-  return ["理解问题", "匹配对应圈子", "确认没有合适圈子", "创建新圈子", "检索知乎内容", "整合观点并创建首帖"];
+  if (route === "existing")
+    return [
+      "理解问题",
+      "匹配对应圈子",
+      "进入圈内查找帖子",
+      "找到可回复帖子",
+      "检索补充内容",
+      "展示已有帖子",
+    ];
+  if (route === "circle")
+    return [
+      "理解问题",
+      "匹配对应圈子",
+      "进入圈内查找帖子",
+      "确认没有可回复帖子",
+      "检索知乎内容",
+      "整合观点并创建新帖",
+    ];
+  return [
+    "理解问题",
+    "匹配对应圈子",
+    "确认没有合适圈子",
+    "创建新圈子",
+    "检索知乎内容",
+    "整合观点并创建首帖",
+  ];
 }
 
 const knowledgeLabels: Record<KnowledgeStateStatus, string> = {
@@ -161,7 +196,11 @@ export function AppHeader({
           >
             圈子
           </button>
-          <button className={"nav-item" + (nav === "verify" ? " active" : "")} type="button" onClick={onVerification}>
+          <button
+            className={"nav-item" + (nav === "verify" ? " active" : "")}
+            type="button"
+            onClick={onVerification}
+          >
             求证
           </button>
           <button
@@ -430,7 +469,11 @@ function AskView({
     timeline
       .add(".agent-orbit", { rotate: 360, duration: 5200, loop: true })
       .add(".agent-core", { scale: [0.92, 1.08], opacity: [0.7, 1], duration: 900, loop: true }, 0)
-      .add(".search-particle", { translateY: [-8, 8], opacity: [0.35, 1], delay: stagger(90), duration: 900, loop: true }, 0);
+      .add(
+        ".search-particle",
+        { translateY: [-8, 8], opacity: [0.35, 1], delay: stagger(90), duration: 900, loop: true },
+        0,
+      );
     return () => {
       timeline.revert();
     };
@@ -444,34 +487,43 @@ function AskView({
             <X size={18} />
           </button>
         ) : null}
-        {!loading && !completedId ? <>
-          <div className="eyebrow"><Sparkles size={15} />让答案停在证据边界上</div>
-          <h1>有些问题，搜索之后才真正开始。</h1>
-          <p className="ask-description">Agent 先整理已有信息，再把尚未解决的部分交给真正经历过的人。</p>
-        </> : null}
+        {!loading && !completedId ? (
+          <>
+            <div className="eyebrow">
+              <Sparkles size={15} />
+              让答案停在证据边界上
+            </div>
+            <h1>有些问题，搜索之后才真正开始。</h1>
+            <p className="ask-description">
+              Agent 先整理已有信息，再把尚未解决的部分交给真正经历过的人。
+            </p>
+          </>
+        ) : null}
 
-        {!loading && !completedId && <form className="question-box" onSubmit={onSubmit}>
-          <textarea
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="输入一个需要真实经验才能回答的问题"
-            aria-label="求证问题"
-            rows={3}
-            maxLength={500}
-            disabled={loading}
-          />
-          <div className="question-box-footer">
-            <span className="input-hint">知乎内容 · 全网资料 · 真人证据</span>
-            <button
-              className="submit-question"
-              type="submit"
-              disabled={loading || question.trim().length === 0}
-              aria-label="开始求证"
-            >
-              {loading ? <LoaderCircle className="spin" size={19} /> : <ArrowRight size={20} />}
-            </button>
-          </div>
-        </form>}
+        {!loading && !completedId && (
+          <form className="question-box" onSubmit={onSubmit}>
+            <textarea
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="输入一个需要真实经验才能回答的问题"
+              aria-label="求证问题"
+              rows={3}
+              maxLength={500}
+              disabled={loading}
+            />
+            <div className="question-box-footer">
+              <span className="input-hint">知乎内容 · 全网资料 · 真人证据</span>
+              <button
+                className="submit-question"
+                type="submit"
+                disabled={loading || question.trim().length === 0}
+                aria-label="开始求证"
+              >
+                {loading ? <LoaderCircle className="spin" size={19} /> : <ArrowRight size={20} />}
+              </button>
+            </div>
+          </form>
+        )}
 
         {error ? (
           <div className="inline-error" role="alert">
@@ -483,13 +535,29 @@ function AskView({
         {loading ? (
           <SearchAgentWorkspace step={loadingStep} question={question} />
         ) : completedId ? (
-          getSearchRoute(question) === "simple" ? <DirectAnswerComplete question={question} onNew={onClose} /> : <SearchAgentComplete question={question} onOpen={() => onOpenResult?.(completedId)} onNew={onClose} />
+          getSearchRoute(question) === "simple" ? (
+            <DirectAnswerComplete question={question} onNew={onClose} />
+          ) : (
+            <SearchAgentComplete
+              question={question}
+              onOpen={() => onOpenResult?.(completedId)}
+              onNew={onClose}
+            />
+          )
         ) : (
           <div className="search-examples" aria-label="三种搜索流程示例">
-            <div className="search-examples-title"><Lightbulb size={16} /><span>快速测试三种结果</span></div>
+            <div className="search-examples-title">
+              <Lightbulb size={16} />
+              <span>快速测试三种结果</span>
+            </div>
             <div className="search-example-list">
               {searchExamples.map((example) => (
-                <button className={`search-example search-example-${example.tone}`} type="button" key={example.tone} onClick={() => setQuestion(example.question)}>
+                <button
+                  className={`search-example search-example-${example.tone}`}
+                  type="button"
+                  key={example.tone}
+                  onClick={() => setQuestion(example.question)}
+                >
                   <span className="example-label">{example.label}</span>
                   <span className="example-question">{example.question}</span>
                   <ArrowRight size={15} />
@@ -525,16 +593,176 @@ function AskView({
   );
 }
 
-function VerificationHome({ items, missions, onClose }: { items: MockFeedItem[]; missions: Array<{ id: string; investigationId: string; title: string; status: "OPEN" | "CLOSED"; evidenceCount: number }>; onClose: () => void }) {
+function VerificationHome({
+  items,
+  missions,
+  onClose,
+}: {
+  items: MockFeedItem[];
+  missions: Array<{
+    id: string;
+    investigationId: string;
+    title: string;
+    status: "OPEN" | "CLOSED";
+    evidenceCount: number;
+  }>;
+  onClose: () => void;
+}) {
   const [activeMission, setActiveMission] = useState<EvidenceMission | null>(null);
-  const cards = missions.length ? missions.map((mission) => ({ mission, question: mission.title, gap: "缺少能直接验证当前 Claim 的第一手观察", who: "最近 30 天内亲身经历过该场景的当事人" })) : [{ mission: { id: "mock-mission-1", investigationId: items[0]?.id ?? "mock-ai-coding", title: "AI Coding 实际改变了初级开发者哪些工作？", status: "OPEN" as const, evidenceCount: 0 }, question: "AI Coding 实际改变了初级开发者哪些工作？", gap: "缺少真实开发者在 AI Coding 下的工作变化观察", who: "最近 30 天内亲身经历过该场景的开发者" }];
-  return <main className="verification-page"><div className="verification-container"><header className="verification-head"><div><span className="verification-kicker">HUMAN GATEWAY · MISSIONS</span><h1>正在等待真人补充的求证</h1><p>这里只展示求证问题和参与任务，不展示普通帖子。</p></div><button className="console-close" type="button" onClick={onClose}>×</button></header><div className="verification-grid">{cards.map(({ mission, question, gap, who }) => <article className="verification-card" key={mission.id}><div className="verification-card-top"><span className="mission-status">● {mission.status === "OPEN" ? "OPEN · 可参与" : "CLOSED · 已结束"}</span><span>求证任务</span></div><h2>{question}</h2><section className="gap-box"><strong>现在还缺什么？</strong><p>{gap}</p></section><div className="verification-row"><span>需要谁来回答</span><b>{who}</b></div><div className="verification-row"><span>这条观察会帮助</span><p>验证当前问题中的具体 Claim，而不是增加泛泛观点。</p></div><button className="verification-action" type="button" disabled={mission.status !== "OPEN"} onClick={() => setActiveMission({ id: mission.id, investigationId: mission.investigationId, evidenceGapId: "mock-gap", title: question, description: `${gap} 请记录一次具体、可回忆的真实经历。`, qualification: [who], questions: [{ id: "participantType", kind: "SINGLE_SELECT", prompt: "你的身份是什么？", options: [who], required: true }, { id: "timeframe", kind: "SINGLE_SELECT", prompt: "发生时间？", options: ["最近 7 天", "最近 30 天", "更早"], required: true }, { id: "task", kind: "SHORT_TEXT", prompt: "具体发生在什么任务或场景？", required: true }, { id: "aiRole", kind: "SHORT_TEXT", prompt: "当时发生了什么变化？", required: true }, { id: "humanJudgment", kind: "SHORT_TEXT", prompt: "你最后如何判断或处理？", required: true }], status: "OPEN", estimatedSeconds: 50, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })}>参与这次求证 <ArrowRight size={16} /></button></article>)}</div></div>{activeMission ? <MissionDrawer mission={activeMission} onClose={() => setActiveMission(null)} onSubmit={async () => { setActiveMission(null); }} submitting={false} error={null} /> : null}</main>;
+  const cards = missions.length
+    ? missions.map((mission) => ({
+        mission,
+        question: mission.title,
+        gap: "缺少能直接验证当前 Claim 的第一手观察",
+        who: "最近 30 天内亲身经历过该场景的当事人",
+      }))
+    : [
+        {
+          mission: {
+            id: "mock-mission-1",
+            investigationId: items[0]?.id ?? "mock-ai-coding",
+            title: "AI Coding 实际改变了初级开发者哪些工作？",
+            status: "OPEN" as const,
+            evidenceCount: 0,
+          },
+          question: "AI Coding 实际改变了初级开发者哪些工作？",
+          gap: "缺少真实开发者在 AI Coding 下的工作变化观察",
+          who: "最近 30 天内亲身经历过该场景的开发者",
+        },
+      ];
+  return (
+    <main className="verification-page">
+      <div className="verification-container">
+        <header className="verification-head">
+          <div>
+            <span className="verification-kicker">HUMAN GATEWAY · MISSIONS</span>
+            <h1>正在等待真人补充的求证</h1>
+            <p>这里只展示求证问题和参与任务，不展示普通帖子。</p>
+          </div>
+          <button className="console-close" type="button" onClick={onClose}>
+            ×
+          </button>
+        </header>
+        <div className="verification-grid">
+          {cards.map(({ mission, question, gap, who }) => (
+            <article className="verification-card" key={mission.id}>
+              <div className="verification-card-top">
+                <span className="mission-status">
+                  ● {mission.status === "OPEN" ? "OPEN · 可参与" : "CLOSED · 已结束"}
+                </span>
+                <span>求证任务</span>
+              </div>
+              <h2>{question}</h2>
+              <section className="gap-box">
+                <strong>现在还缺什么？</strong>
+                <p>{gap}</p>
+              </section>
+              <div className="verification-row">
+                <span>需要谁来回答</span>
+                <b>{who}</b>
+              </div>
+              <div className="verification-row">
+                <span>这条观察会帮助</span>
+                <p>验证当前问题中的具体 Claim，而不是增加泛泛观点。</p>
+              </div>
+              <button
+                className="verification-action"
+                type="button"
+                disabled={mission.status !== "OPEN"}
+                onClick={() =>
+                  setActiveMission({
+                    id: mission.id,
+                    investigationId: mission.investigationId,
+                    evidenceGapId: "mock-gap",
+                    title: question,
+                    description: `${gap} 请记录一次具体、可回忆的真实经历。`,
+                    qualification: [who],
+                    questions: [
+                      {
+                        id: "participantType",
+                        kind: "SINGLE_SELECT",
+                        prompt: "你的身份是什么？",
+                        options: [who],
+                        required: true,
+                      },
+                      {
+                        id: "timeframe",
+                        kind: "SINGLE_SELECT",
+                        prompt: "发生时间？",
+                        options: ["最近 7 天", "最近 30 天", "更早"],
+                        required: true,
+                      },
+                      {
+                        id: "task",
+                        kind: "SHORT_TEXT",
+                        prompt: "具体发生在什么任务或场景？",
+                        required: true,
+                      },
+                      {
+                        id: "aiRole",
+                        kind: "SHORT_TEXT",
+                        prompt: "当时发生了什么变化？",
+                        required: true,
+                      },
+                      {
+                        id: "humanJudgment",
+                        kind: "SHORT_TEXT",
+                        prompt: "你最后如何判断或处理？",
+                        required: true,
+                      },
+                    ],
+                    status: "OPEN",
+                    estimatedSeconds: 50,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  })
+                }
+              >
+                参与这次求证 <ArrowRight size={16} />
+              </button>
+            </article>
+          ))}
+        </div>
+      </div>
+      {activeMission ? (
+        <MissionDrawer
+          mission={activeMission}
+          onClose={() => setActiveMission(null)}
+          onSubmit={async () => {
+            setActiveMission(null);
+          }}
+          submitting={false}
+          error={null}
+        />
+      ) : null}
+    </main>
+  );
 }
 
-function SearchAgentComplete({ question, onOpen, onNew }: { question: string; onOpen: () => void; onNew?: () => void }) {
+function SearchAgentComplete({
+  question,
+  onOpen,
+  onNew,
+}: {
+  question: string;
+  onOpen: () => void;
+  onNew?: () => void;
+}) {
   useEffect(() => {
-    animate(".complete-mark", { scale: [0.6, 1], rotate: [-18, 0], opacity: [0, 1], duration: 650, ease: "out(4)" });
-    animate(".complete-card", { translateY: [18, 0], opacity: [0, 1], duration: 500, delay: 180, ease: "out(4)" });
+    animate(".complete-mark", {
+      scale: [0.6, 1],
+      rotate: [-18, 0],
+      opacity: [0, 1],
+      duration: 650,
+      ease: "out(4)",
+    });
+    animate(".complete-card", {
+      translateY: [18, 0],
+      opacity: [0, 1],
+      duration: 500,
+      delay: 180,
+      ease: "out(4)",
+    });
   }, []);
   return (
     <section className="agent-complete" aria-live="polite">
@@ -544,32 +772,114 @@ function SearchAgentComplete({ question, onOpen, onNew }: { question: string; on
       <p>Agent 已完成匹配、检索和观点整理，接下来由你决定是否进入这个问题。</p>
       <div className="complete-card">
         <strong>{question}</strong>
-        <div className="complete-stats"><span>18 条相关内容</span><span>3 个主要观点</span><span>1 个待求证缺口</span></div>
-        <div className="complete-actions"><button className="submit-question complete-primary" type="button" onClick={onOpen}>查看帖子与求证</button>{onNew ? <button className="complete-secondary" type="button" onClick={onNew}>继续搜索</button> : null}</div>
+        <div className="complete-stats">
+          <span>18 条相关内容</span>
+          <span>3 个主要观点</span>
+          <span>1 个待求证缺口</span>
+        </div>
+        <div className="complete-actions">
+          <button className="submit-question complete-primary" type="button" onClick={onOpen}>
+            查看帖子与求证
+          </button>
+          {onNew ? (
+            <button className="complete-secondary" type="button" onClick={onNew}>
+              继续搜索
+            </button>
+          ) : null}
+        </div>
       </div>
     </section>
   );
 }
 
 function DirectAnswerComplete({ question, onNew }: { question: string; onNew?: () => void }) {
-  useEffect(() => { animate(".direct-answer-card", { translateY: [16, 0], opacity: [0, 1], duration: 550, ease: "out(4)" }); }, []);
-  return <section className="direct-answer-screen" aria-live="polite"><div className="direct-answer-card"><span className="direct-answer-label">直接回答</span><h2>{question}</h2><p>HTTP 404 表示请求的资源不存在。通常是页面、接口或文件没有找到，可能原因包括 URL 写错、资源已删除，或服务器路由没有配置。</p>{onNew ? <button className="submit-question complete-primary" type="button" onClick={onNew}>继续提问</button> : null}</div></section>;
+  useEffect(() => {
+    animate(".direct-answer-card", {
+      translateY: [16, 0],
+      opacity: [0, 1],
+      duration: 550,
+      ease: "out(4)",
+    });
+  }, []);
+  return (
+    <section className="direct-answer-screen" aria-live="polite">
+      <div className="direct-answer-card">
+        <span className="direct-answer-label">直接回答</span>
+        <h2>{question}</h2>
+        <p>
+          HTTP 404 表示请求的资源不存在。通常是页面、接口或文件没有找到，可能原因包括 URL
+          写错、资源已删除，或服务器路由没有配置。
+        </p>
+        {onNew ? (
+          <button className="submit-question complete-primary" type="button" onClick={onNew}>
+            继续提问
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
 function SearchAgentWorkspace({ step, question }: { step: number; question: string }) {
   const route = getSearchRoute(question);
   const routeMeta = {
-    simple: { label: "DIRECT ANSWER", title: "直接回答这个问题", color: "green", detail: "问题明确，无需匹配圈子或检索社区内容" },
-    existing: { label: "MATCH FOUND", title: "复用已有问题", color: "blue", detail: "已找到高度匹配的社区帖子，不重复创建" },
-    circle: { label: "CIRCLE FOUND", title: "在 AI 圈子创建新问题", color: "violet", detail: "已有 AI 圈子，但没有完全匹配的帖子" },
-    "new-circle": { label: "NEW SPACE", title: "创建新圈子与问题", color: "amber", detail: "没有匹配圈子，Agent 将先建立新的讨论空间" },
+    simple: {
+      label: "DIRECT ANSWER",
+      title: "直接回答这个问题",
+      color: "green",
+      detail: "问题明确，无需匹配圈子或检索社区内容",
+    },
+    existing: {
+      label: "MATCH FOUND",
+      title: "复用已有问题",
+      color: "blue",
+      detail: "已找到高度匹配的社区帖子，不重复创建",
+    },
+    circle: {
+      label: "CIRCLE FOUND",
+      title: "在 AI 圈子创建新问题",
+      color: "violet",
+      detail: "已有 AI 圈子，但没有完全匹配的帖子",
+    },
+    "new-circle": {
+      label: "NEW SPACE",
+      title: "创建新圈子与问题",
+      color: "amber",
+      detail: "没有匹配圈子，Agent 将先建立新的讨论空间",
+    },
   }[route];
   const stages = getSearchStages(route);
   const active = Math.min(step, stages.length - 1);
-  const visibleStages = route === "simple" ? stages.slice(0, Math.min(active + 1, 2)) : stages.slice(0, active + 1);
+  const visibleStages =
+    route === "simple" ? stages.slice(0, Math.min(active + 1, 2)) : stages.slice(0, active + 1);
   const hasDecision = active >= 1;
   const [typed, setTyped] = useState("");
-  const typeLine = route === "simple" ? (active === 0 ? "拆解问题语义…" : active === 1 ? "判断完成：这是一个可直接回答的问题" : "正在生成简洁回复…") : active === 0 ? "拆解问题语义…" : active === 1 ? "正在匹配最合适的圈子…" : route === "existing" && active === 2 ? "圈子已找到：正在进入圈内查找帖子…" : route === "existing" && active === 3 ? "找到可回复帖子：准备补充相关知识…" : route === "circle" && active === 2 ? "圈子已找到：正在进入圈内查找帖子…" : route === "circle" && active === 3 ? "圈内没有可回复帖子：转入创建流程…" : route === "new-circle" && active === 2 ? "没有找到合适圈子：准备创建新空间…" : route === "new-circle" && active === 3 ? "新圈子正在生成…" : active < 5 ? "知乎内容流入：观点正在分层…" : "新的求证入口已生成";
+  const typeLine =
+    route === "simple"
+      ? active === 0
+        ? "拆解问题语义…"
+        : active === 1
+          ? "判断完成：这是一个可直接回答的问题"
+          : "正在生成简洁回复…"
+      : active === 0
+        ? "拆解问题语义…"
+        : active === 1
+          ? "正在匹配最合适的圈子…"
+          : route === "existing" && active === 2
+            ? "圈子已找到：正在进入圈内查找帖子…"
+            : route === "existing" && active === 3
+              ? "找到可回复帖子：准备补充相关知识…"
+              : route === "circle" && active === 2
+                ? "圈子已找到：正在进入圈内查找帖子…"
+                : route === "circle" && active === 3
+                  ? "圈内没有可回复帖子：转入创建流程…"
+                  : route === "new-circle" && active === 2
+                    ? "没有找到合适圈子：准备创建新空间…"
+                    : route === "new-circle" && active === 3
+                      ? "新圈子正在生成…"
+                      : active < 5
+                        ? "知乎内容流入：观点正在分层…"
+                        : "新的求证入口已生成";
   useEffect(() => {
     const reset = window.setTimeout(() => setTyped(""), 0);
     let index = 0;
@@ -578,48 +888,155 @@ function SearchAgentWorkspace({ step, question }: { step: number; question: stri
       setTyped(typeLine.slice(0, index));
       if (index >= typeLine.length) window.clearInterval(timer);
     }, 52);
-    return () => { window.clearTimeout(reset); window.clearInterval(timer); };
+    return () => {
+      window.clearTimeout(reset);
+      window.clearInterval(timer);
+    };
   }, [typeLine]);
   useEffect(() => {
-    animate(".stage-card", { translateY: [22, 0], scale: [0.88, 1], opacity: [0, 1], delay: stagger(110, { grid: [3, 2], from: "center" }), duration: 700, ease: "out(4)" });
-    animate(".search-particle", { scale: [0.2, 1.8], opacity: [0.15, 1], delay: stagger(45, { grid: [7, 1], from: "center" }), duration: 850, loop: true, alternate: true, ease: "inOutSine" });
-    animate(".matrix-cell", { scale: [0, 1], opacity: [0, 0.9], delay: stagger(35, { grid: [12, 4], from: "center" }), duration: 500, loop: true, alternate: true, ease: "inOutQuad" });
-    animate(".route-beam", { strokeDashoffset: [180, 0], opacity: [0.1, 1], duration: 1200, loop: true, ease: "linear" });
+    animate(".stage-card", {
+      translateY: [22, 0],
+      scale: [0.88, 1],
+      opacity: [0, 1],
+      delay: stagger(110, { grid: [3, 2], from: "center" }),
+      duration: 700,
+      ease: "out(4)",
+    });
+    animate(".search-particle", {
+      scale: [0.2, 1.8],
+      opacity: [0.15, 1],
+      delay: stagger(45, { grid: [7, 1], from: "center" }),
+      duration: 850,
+      loop: true,
+      alternate: true,
+      ease: "inOutSine",
+    });
+    animate(".matrix-cell", {
+      scale: [0, 1],
+      opacity: [0, 0.9],
+      delay: stagger(35, { grid: [12, 4], from: "center" }),
+      duration: 500,
+      loop: true,
+      alternate: true,
+      ease: "inOutQuad",
+    });
+    animate(".route-beam", {
+      strokeDashoffset: [180, 0],
+      opacity: [0.1, 1],
+      duration: 1200,
+      loop: true,
+      ease: "linear",
+    });
   }, [step]);
   return (
     <section className={`agent-workspace route-surface route-${route}`} aria-live="polite">
-      <div className="matrix-bg" aria-hidden="true">{Array.from({ length: 48 }).map((_, i) => <i className="matrix-cell" key={i} />)}</div>
+      <div className="matrix-bg" aria-hidden="true">
+        {Array.from({ length: 48 }).map((_, i) => (
+          <i className="matrix-cell" key={i} />
+        ))}
+      </div>
       <div className="agent-workspace-head">
         <div className="agent-visual">
           <div className="agent-orbit" />
-          <svg className="route-beam" viewBox="0 0 100 20" aria-hidden="true"><path d="M2 10 C28 0 68 20 98 10" /></svg>
+          <svg className="route-beam" viewBox="0 0 100 20" aria-hidden="true">
+            <path d="M2 10 C28 0 68 20 98 10" />
+          </svg>
           <div className="agent-core">✦</div>
-          {Array.from({ length: 7 }).map((_, index) => <i className="search-particle" key={index} style={{ transform: `rotate(${index * 51}deg) translateY(-47px)` }} />)}
+          {Array.from({ length: 7 }).map((_, index) => (
+            <i
+              className="search-particle"
+              key={index}
+              style={{ transform: `rotate(${index * 51}deg) translateY(-47px)` }}
+            />
+          ))}
         </div>
         <div>
-          <span className={`workspace-kicker ${hasDecision ? `route-${routeMeta.color}` : ""}`}>{hasDecision ? `${routeMeta.label} · ` : "ANALYZING · "}AGENT LIVE WORKSPACE</span>
-          <h2>{active === 0 ? "正在理解问题" : active === 1 ? "正在判断问题类型" : routeMeta.title}</h2>
-          <p>{active === 0 ? "提取主题、对象和关键词，暂不预设后续路径" : active === 1 ? "先判断圈子，不提前判断帖子或创建动作" : routeMeta.detail}</p>
+          <span className={`workspace-kicker ${hasDecision ? `route-${routeMeta.color}` : ""}`}>
+            {hasDecision ? `${routeMeta.label} · ` : "ANALYZING · "}AGENT LIVE WORKSPACE
+          </span>
+          <h2>
+            {active === 0 ? "正在理解问题" : active === 1 ? "正在判断问题类型" : routeMeta.title}
+          </h2>
+          <p>
+            {active === 0
+              ? "提取主题、对象和关键词，暂不预设后续路径"
+              : active === 1
+                ? "先判断圈子，不提前判断帖子或创建动作"
+                : routeMeta.detail}
+          </p>
         </div>
-        <span className="workspace-count">{active + 1} / {stages.length}</span>
+        <span className="workspace-count">
+          {active + 1} / {stages.length}
+        </span>
       </div>
       <div className="agent-question-chip">“{question || "正在分析你的问题"}”</div>
-      <div className="type-line"><span className="type-prompt">›</span>{typed}<span className="type-cursor" /></div>
+      <div className="type-line">
+        <span className="type-prompt">›</span>
+        {typed}
+        <span className="type-cursor" />
+      </div>
       <div className="branch-map single-route" aria-label="Agent 当前决策路径">
-        <div className="branch-node branch-origin">问题</div><div className="branch-line" />
-        {active > 1 ? <div className="branch-node selected">{route === "simple" ? "直接回复" : route === "existing" ? "已有圈子 · 展示帖子" : route === "circle" ? "已有圈子 · 创建新帖" : "新圈子 · 创建新帖"}</div> : <div className="branch-node pending">等待判断结果</div>}
+        <div className="branch-node branch-origin">问题</div>
+        <div className="branch-line" />
+        {active > 1 ? (
+          <div className="branch-node selected">
+            {route === "simple"
+              ? "直接回复"
+              : route === "existing"
+                ? "已有圈子 · 展示帖子"
+                : route === "circle"
+                  ? "已有圈子 · 创建新帖"
+                  : "新圈子 · 创建新帖"}
+          </div>
+        ) : (
+          <div className="branch-node pending">等待判断结果</div>
+        )}
       </div>
       <div className="agent-stage-grid">
         {visibleStages.map((stage, index) => (
-          <div className={`stage-card ${index < active ? "done" : ""} ${index === active ? "active" : ""}`} key={`${stage}-${index}`}>
-            <span className="stage-icon">{index < active ? "✓" : ["✦", "⌕", "◈", "↗", "◌", "＋"][index]}</span>
-            <div><strong>{stage}</strong><small>{index === 1 && index === active ? (route === "existing" ? "发现 1 个高度匹配问题" : "暂未找到完全匹配问题") : index === 2 && index === active && route === "new-circle" ? "AI 与职业变化 · 新空间" : routeMeta.detail}</small></div>
+          <div
+            className={`stage-card ${index < active ? "done" : ""} ${index === active ? "active" : ""}`}
+            key={`${stage}-${index}`}
+          >
+            <span className="stage-icon">
+              {index < active ? "✓" : ["✦", "⌕", "◈", "↗", "◌", "＋"][index]}
+            </span>
+            <div>
+              <strong>{stage}</strong>
+              <small>
+                {index === 1 && index === active
+                  ? route === "existing"
+                    ? "发现 1 个高度匹配问题"
+                    : "暂未找到完全匹配问题"
+                  : index === 2 && index === active && route === "new-circle"
+                    ? "AI 与职业变化 · 新空间"
+                    : routeMeta.detail}
+              </small>
+            </div>
           </div>
         ))}
       </div>
       <div className="agent-stream">
         <span className="stream-dot" />
-        {route === "simple" ? (active < 2 ? "正在判断是否可以直接回答…" : "Agent 正在生成直接回复…") : active === 0 ? "关键词正在从问题中析出…" : active === 1 ? (route === "existing" ? "匹配成功 · 现有帖子正在聚焦" : "未找到完全匹配 · 分支已展开") : route === "existing" ? "相关知乎内容正在补充到现有问题…" : active === 2 && route === "new-circle" ? "圈子节点正在生成…" : active < 4 ? "知乎内容正在汇入，来源正在去重…" : active === 4 ? "观点正在聚类，分歧被标记…" : "帖子正在写入目标圈子…"}
+        {route === "simple"
+          ? active < 2
+            ? "正在判断是否可以直接回答…"
+            : "Agent 正在生成直接回复…"
+          : active === 0
+            ? "关键词正在从问题中析出…"
+            : active === 1
+              ? route === "existing"
+                ? "匹配成功 · 现有帖子正在聚焦"
+                : "未找到完全匹配 · 分支已展开"
+              : route === "existing"
+                ? "相关知乎内容正在补充到现有问题…"
+                : active === 2 && route === "new-circle"
+                  ? "圈子节点正在生成…"
+                  : active < 4
+                    ? "知乎内容正在汇入，来源正在去重…"
+                    : active === 4
+                      ? "观点正在聚类，分歧被标记…"
+                      : "帖子正在写入目标圈子…"}
       </div>
     </section>
   );
@@ -1656,7 +2073,10 @@ export default function HomePage() {
         return;
       }
       if (hash === "verify") {
-        setShowComposer(false); setShowConsole(false); setActiveNav("verify"); return;
+        setShowComposer(false);
+        setShowConsole(false);
+        setActiveNav("verify");
+        return;
       }
       if (hash === "mine") {
         setShowConsole(true);
@@ -1697,7 +2117,9 @@ export default function HomePage() {
     setAskSession((current) => current + 1);
     setPageError(null);
     if (getSearchRoute(trimmedQuestion) === "simple") {
-      await new Promise((resolve) => window.setTimeout(resolve, Math.max(0, 4_500 - (Date.now() - startedAt))));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, Math.max(0, 4_500 - (Date.now() - startedAt))),
+      );
       setCompletedInvestigationId("direct-answer");
       setCreatingInvestigation(false);
       return;
@@ -1705,13 +2127,17 @@ export default function HomePage() {
     try {
       const created = await createInvestigation(trimmedQuestion);
       setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
-      await new Promise((resolve) => window.setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))),
+      );
       setCompletedInvestigationId(created.id);
     } catch (error) {
       const created = createMockInvestigation(trimmedQuestion);
       setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
       setFeedNotice(`后端未接受这次求证（${getErrorMessage(error)}），已改用本地演示数据。`);
-      await new Promise((resolve) => window.setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))),
+      );
       setCompletedInvestigationId(created.id);
     } finally {
       setCreatingInvestigation(false);
@@ -1728,15 +2154,23 @@ export default function HomePage() {
         onVerification={() => setPanel("verify")}
         activeNav={activeNav}
       />
-      {activeNav !== "verify" ? <FeedHome
-        items={investigations}
-        loading={loadingInvestigations}
-        error={pageError}
-        notice={feedNotice}
-        onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
-        onAsk={() => setPanel("search")}
-        onMine={() => setPanel("mine")}
-      /> : <VerificationHome items={investigations} missions={missions} onClose={() => setPanel("home")} />}
+      {activeNav !== "verify" ? (
+        <FeedHome
+          items={investigations}
+          loading={loadingInvestigations}
+          error={pageError}
+          notice={feedNotice}
+          onOpen={(id) => router.push(`/investigation/${encodeURIComponent(id)}`)}
+          onAsk={() => setPanel("search")}
+          onMine={() => setPanel("mine")}
+        />
+      ) : (
+        <VerificationHome
+          items={investigations}
+          missions={missions}
+          onClose={() => setPanel("home")}
+        />
+      )}
       {showComposer ? (
         <div className="composer-overlay">
           <AskView
@@ -1747,7 +2181,10 @@ export default function HomePage() {
             loading={creatingInvestigation}
             error={pageError}
             completedId={completedInvestigationId}
-            onOpenResult={(id) => { setPanel("home"); router.push(`/investigation/${encodeURIComponent(id)}`); }}
+            onOpenResult={(id) => {
+              setPanel("home");
+              router.push(`/investigation/${encodeURIComponent(id)}`);
+            }}
             onClose={() => setPanel("home")}
           />
         </div>

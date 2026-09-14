@@ -231,3 +231,108 @@ The target is complete when:
 ## 11. Out of Scope for This Spec
 
 This specification fixes the product behavior and development target. It does not prescribe the exact database schema, LLM vendor, prompt format, UI framework, or internal file layout. Those implementation decisions must preserve the contracts, module boundaries, traceability, and behavior defined above.
+
+# 12. Product Direction v3 — Agent-Grown Community and Conversational Contribution
+
+**Adopted:** 2026-09-14
+**Release target:** Zhihu hackathon Golden Demo, not production release
+
+## 12.1 Product thesis
+
+Human Gateway does not begin with an empty Circle waiting for users to create posts. The Agent first uses available Zhihu/public knowledge inputs to discover a topic, organize existing questions, answers, comments, and related sources, create an initial Knowledge Object, and identify what public knowledge cannot answer. Users enter an already-formed knowledge scene and are invited to contribute first-hand experience only where it can advance the current frontier.
+
+```text
+Zhihu/public knowledge
+→ Agent topic research and organization
+→ Initial Knowledge Object
+→ plain-language consensus / disagreement / unknown
+→ Evidence Gap
+→ conversational invitation
+→ user-confirmed Observation
+→ Evidence evaluation and re-evaluation
+→ contribution receipt and updated Knowledge Object
+```
+
+The product must feel like a human community with an Agent editorial layer, not a research dashboard or an empty task marketplace.
+
+## 12.2 User-facing information hierarchy
+
+The UI shall prioritize, in this order:
+
+1. the question and human discussion;
+2. what the community currently understands;
+3. disagreement and uncertainty;
+4. why a first-hand experience is useful;
+5. one primary action;
+6. technical research details on demand.
+
+The following are secondary implementation details and must not dominate the first viewport: IDs, raw enum values, Claim/Evidence Gap IDs, internal projection labels, request metadata, and re-evaluation internals. When shown, technical states must have a plain-language explanation.
+
+## 12.3 Product surfaces
+
+### Community discovery
+
+The home page is an Agent discovery surface. It presents Knowledge Objects that have already formed from public discussion, their source counts and provenance mode (LIVE, CACHE, or GOLDEN_FIXTURE), a concise Agent summary, consensus, disagreement, unknowns, and one clear entry action. Creating a new research topic is secondary and must explain that the Agent will research existing public discussion first.
+
+### Knowledge Object / discussion view
+
+The primary detail view presents the question, source context, human discussions, and participant context before Agent organization. The Agent layer is expressed as “大家比较一致 / 仍有分歧 / 还不知道” and may include a short, auditable activity summary. Claims, grades, IDs, and raw provenance belong in a collapsible technical details section.
+
+### Conversational contribution
+
+A Mission is user-facing as an invitation, not a task record. The entry asks one open but bounded question generated from the active Evidence Gap. The user answers in a dialogue box, not a multi-field form. The Agent may ask at most one or two targeted follow-ups, must not repeat known information, must not presuppose that the experience supports the current Claim, and must allow “不记得 / 不方便说”.
+
+Before submission, the Agent produces a factual summary for user confirmation. The user can edit or reject the summary. Conversation整理 is not Evidence acceptance and cannot independently assign grade, attribution, or Knowledge State.
+
+### Contribution receipt
+
+After confirmation, the existing Evidence Authority and Re-evaluation Authority evaluate the Observation. The UI presents a plain-language result first: what the experience added, whether the overall judgment changed, and what remains unknown. Technical values such as grade, gap match, affected Claim, and state transition are expandable. Accepted, rejected, and accepted-without-state-change outcomes must all be explainable.
+
+## 12.4 Backend capabilities
+
+The hackathon implementation shall provide or preserve these capabilities without creating a second domain authority:
+
+- public-source discovery and source-mode provenance;
+- Agent-generated community/discovery projection;
+- human discussion plus Agent organization projection;
+- Evidence Gap-specific invitation text;
+- conversation draft state and bounded follow-up;
+- user-confirmed Observation handoff to existing Evidence intake;
+- existing grading, attribution, Mission lifecycle, and re-evaluation;
+- contribution-impact projection;
+- LIVE → CACHE → GOLDEN_FIXTURE fallback with explicit labeling.
+
+Conversation endpoints, if needed, are application orchestration interfaces. They must not move Evidence Grade, Claim Attribution, or Knowledge State decisions into the conversation layer or frontend.
+
+## 12.5 Hackathon non-goals
+
+Do not expand this release into a full social network, complete Zhihu replacement, multi-agent system, authentication system, recommendation/ranking system, long-term memory, knowledge graph, production-scale persistence, or arbitrary topic marketplace.
+
+## 12.6 Acceptance criteria
+
+A first-time user, without explanation, can answer within 30 seconds: what Human Gateway is, where the content comes from, what the Agent did, what is still missing, and how to participate.
+
+The Golden Demo must visibly complete:
+
+```text
+Agent-grown topic
+→ public human discussion
+→ plain-language Agent organization
+→ explicit knowledge boundary
+→ open conversational invitation
+→ one or two follow-ups
+→ user confirmation
+→ server-side Evidence evaluation
+→ explainable impact receipt
+→ updated or intentionally unchanged Knowledge Object
+```
+
+The demo must not claim that a single experience proves a universal conclusion, must preserve original human text, and must label cache/fixture content honestly.
+
+## 12.7 Implementation order
+
+1. Rework discovery and Knowledge Object information hierarchy.
+2. Replace the Mission form entry with conversational contribution and confirmation.
+3. Return and render contribution impact in plain language.
+4. Add deterministic Golden Demo seed, failure cases, and LIVE/CACHE/GOLDEN_FIXTURE labels.
+5. Run `npm run verify` and exercise the complete path in a browser.

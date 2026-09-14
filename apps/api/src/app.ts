@@ -2,12 +2,19 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   AGENT_ACTION,
+  ConversationDraftRequestSchema,
+  ChatRouteRequestSchema,
+  ParticipationRequestSchema,
+  ActivityEventsResponseSchema,
+  ConfirmObservationRequestSchema,
+  MISSION_STATUS,
   CreateInvestigationRequestSchema,
   CreateMissionRequestSchema,
   EvidenceSubmissionSchema,
   GAP_SUITABILITY_STATUS,
   type AgentAction,
   type Investigation,
+  MaintenanceRunSchema,
 } from "@human-api/contracts";
 import {
   buildInitialAgentActions,
@@ -17,15 +24,18 @@ import {
   evaluateGapSuitability,
 } from "@human-api/agent";
 
+import { extractConfirmedObservation, prepareConversation } from "./conversation.js";
 import { HttpError, toHttpError } from "./errors.js";
+import { projectKnowledgeObject, projectDiscoveryTopic } from "./community-projection.js";
 import { submitMissionEvidence } from "./evidence-intake.js";
-import type { InMemoryInvestigationRepository } from "./repository.js";
+import { closeMission } from "./mission-lifecycle.js";
+import type { InvestigationRepository } from "./repository.js";
 import type { SearchService } from "./search-service.js";
 import { DiscussionInputSchema } from "@human-api/contracts";
 import type { DiscussionOrganizer } from "./llm/discussion-organizer.js";
 
 export interface AppDependencies {
-  repository: InMemoryInvestigationRepository;
+  repository: InvestigationRepository;
   searchService: SearchService;
   discussionOrganizer?: DiscussionOrganizer;
   clock?: () => Date;
@@ -64,7 +74,7 @@ function sendJson(
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   });
-  response.end(`${JSON.stringify(body, null, 2)}\n`);
+  response.end(`${JSON.stringify(body, null, 2)}`);
 }
 
 function parseOrThrow<T>(
@@ -88,7 +98,34 @@ function appendAction(actions: AgentAction[], action: AgentAction): void {
 
 export function createRequestHandler(dependencies: AppDependencies) {
   const clock = dependencies.clock ?? (() => new Date());
+
   const idFactory = dependencies.idFactory ?? randomUUID;
+  let preparingDemo: Promise<Investigation> | undefined;
+  async function prepareInvestigation(question: string): Promise<Investigation> {
+    const [zhihu, global] = await Promise.all([
+      dependencies.searchService.searchZhihu(question),
+      dependencies.searchService.searchGlobal(question),
+    ]);
+    const evidenceState = evaluateSearchEvidence({ question, zhihu, global });
+    const now = clock().toISOString();
+    const investigation: Investigation = {
+      id: idFactory(),
+      question,
+      searches: { zhihu, global },
+      evidenceState,
+      actions: buildInitialAgentActions(evidenceState),
+      missions: [],
+      evidence: [],
+      discussions: [],
+      discussionOrganizations: [],
+      llmRuns: [],
+      knowledgeState: createInitialKnowledgeState(evidenceState, now),
+      createdAt: now,
+      updatedAt: now,
+    };
+    dependencies.repository.save(investigation);
+    return investigation;
+  }
 
   return async function requestHandler(
     request: IncomingMessage,
@@ -109,6 +146,469 @@ export function createRequestHandler(dependencies: AppDependencies) {
         return;
       }
 
+      if (request.method === "POST" && path === "/api/demo/prepare") {
+        const question = "AI Coding 实际改变了初级开发者哪些工作？";
+        let investigation = dependencies.repository
+          .listInvestigations()
+          .find((item) => item.question === question);
+        if (!investigation) {
+          preparingDemo ??= prepareInvestigation(question).finally(() => {
+            preparingDemo = undefined;
+          });
+          investigation = await preparingDemo;
+        }
+        const gap = investigation.evidenceState.nextGap;
+        if (gap && !investigation.missions.some((item) => item.evidenceGapId === gap.id)) {
+          investigation.missions.push(
+            createEvidenceMission({ investigationId: investigation.id, question, gap }),
+          );
+          appendAction(investigation.actions, AGENT_ACTION.CREATE_MISSION);
+          dependencies.repository.save(investigation);
+        }
+        sendJson(response, 200, investigation, requestId);
+        return;
+      }
+      const conversationMatch = /^\/api\/missions\/([^/]+)\/conversation(\/confirm)?$/.exec(path);
+      if (request.method === "POST" && conversationMatch?.[1]) {
+        const lookup = dependencies.repository.findMission(
+          decodeURIComponent(conversationMatch[1]),
+        );
+        if (!lookup) throw new HttpError(404, "NOT_FOUND", "这份邀请不存在，请返回发现页。");
+        if (lookup.mission.status !== MISSION_STATUS.OPEN)
+          throw new HttpError(409, "VALIDATION_ERROR", "这份邀请已关闭，仍可查看历史贡献。");
+        const body = await readJson(request);
+        if (conversationMatch[2]) {
+          const input = parseOrThrow(ConfirmObservationRequestSchema, body);
+          const result = submitMissionEvidence({
+            ...lookup,
+            submission: extractConfirmedObservation(input.summary, input.demoSample),
+            clock,
+            idFactory,
+          });
+          dependencies.repository.save(result.investigation);
+          sendJson(response, 201, result, requestId);
+        } else {
+          const input = parseOrThrow(ConversationDraftRequestSchema, body);
+          sendJson(response, 200, prepareConversation(lookup.mission, input.answers), requestId);
+        }
+        return;
+      }
+
+      if (request.method === "POST" && path === "/api/chat/route") {
+        const input = parseOrThrow(ChatRouteRequestSchema, await readJson(request));
+        const normalize = (value: string) =>
+          value
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}]+/gu, " ")
+            .trim();
+        const tokens = (value: string) =>
+          new Set(
+            normalize(value)
+              .split(/\s+/)
+              .filter((token) => token.length > 1),
+          );
+        const queryTokens = tokens(input.message);
+        const matched = dependencies.repository
+          .listInvestigations()
+          .map((item) => {
+            const itemTokens = tokens(item.question);
+            const intersection = [...queryTokens].filter((token) => itemTokens.has(token)).length;
+            const union = new Set([...queryTokens, ...itemTokens]).size;
+            return { item, score: union ? intersection / union : 0 };
+          })
+          .sort((a, b) => b.score - a.score)[0];
+        const exact = matched?.score === 1 ? matched.item : undefined;
+        const similar = matched && matched.score >= 0.35 ? matched.item : undefined;
+        if (exact || similar) {
+          sendJson(
+            response,
+            200,
+            {
+              kind: "MATCHED_INVESTIGATION",
+              investigationId: (exact ?? similar)!.id,
+              rationale: exact
+                ? "已有相同调查主题。"
+                : "发现词汇重叠的相似调查主题，建议先进入已有 Investigation。",
+            },
+            requestId,
+          );
+          return;
+        }
+        if (input.message.length < 18) {
+          sendJson(
+            response,
+            200,
+            {
+              kind: "DIRECT_ANSWER",
+              answer: "这是一个适合直接回答的简单问题。",
+              limitations: ["演示回答未调用实时 LLM。"],
+            },
+            requestId,
+          );
+          return;
+        }
+        sendJson(
+          response,
+          200,
+          {
+            kind: "CREATE_PROPOSAL",
+            proposalId: randomUUID(),
+            question: input.message,
+            rationale: "建议创建持续调查主题。",
+          },
+          requestId,
+        );
+        return;
+      }
+
+      const participationMatch = /^\/api\/investigations\/([^/]+)\/participation$/.exec(path);
+      if (request.method === "POST" && participationMatch?.[1]) {
+        const investigation = dependencies.repository.get(
+          decodeURIComponent(participationMatch[1]),
+        );
+        if (!investigation) throw new HttpError(404, "NOT_FOUND", "Investigation not found.");
+        const input = parseOrThrow(ParticipationRequestSchema, await readJson(request));
+        const mission = input.missionId
+          ? investigation.missions.find((item) => item.id === input.missionId)
+          : investigation.missions.find((item) => item.status === MISSION_STATUS.OPEN);
+        if (mission && /经历|亲身|观察|证据|案例/.test(input.message)) {
+          sendJson(
+            response,
+            200,
+            { intent: "EVIDENCE_SUBMISSION", missionId: mission.id, next: "CONVERSATION" },
+            requestId,
+          );
+          return;
+        }
+        if (dependencies.discussionOrganizer) {
+          const discussion = {
+            id: idFactory(),
+            investigationId: investigation.id,
+            content: input.message,
+            authorLabel: "community-participant",
+            createdAt: clock().toISOString(),
+            source: "COMMUNITY_PARTICIPATION",
+          };
+          const organized = await dependencies.discussionOrganizer.organize(discussion);
+          investigation.discussions.push(discussion);
+          investigation.discussionOrganizations.push(organized.organization);
+          investigation.llmRuns.push(organized.run);
+          for (const claim of organized.organization.claims) {
+            if (
+              !investigation.evidenceState.supported.some((item) => item.id === claim.id) &&
+              !investigation.evidenceState.unsupported.some((item) => item.id === claim.id)
+            ) {
+              investigation.evidenceState.unsupported.push(claim);
+            }
+          }
+          const recommendedGap = organized.organization.gaps.find(
+            (gap) =>
+              gap.affectedClaimId &&
+              investigation.evidenceState.unsupported.some(
+                (claim) => claim.id === gap.affectedClaimId,
+              ),
+          );
+          if (recommendedGap && organized.organization.missionRecommended) {
+            investigation.evidenceState.candidateGap = recommendedGap;
+            investigation.evidenceState.gapSuitability = evaluateGapSuitability(
+              recommendedGap,
+              investigation.question,
+            );
+            const suitability = investigation.evidenceState.gapSuitability;
+            const effectiveGap = suitability.reframedGap ?? recommendedGap;
+            investigation.evidenceState.nextGap =
+              suitability.status === GAP_SUITABILITY_STATUS.MISSION_READY
+                ? effectiveGap
+                : undefined;
+            if (suitability.status === GAP_SUITABILITY_STATUS.MISSION_READY) {
+              const existingMission = investigation.missions.find(
+                (item) =>
+                  item.status === MISSION_STATUS.OPEN && item.evidenceGapId === effectiveGap.id,
+              );
+              if (!existingMission) {
+                investigation.missions.push(
+                  createEvidenceMission({
+                    investigationId: investigation.id,
+                    question: investigation.question,
+                    gap: effectiveGap,
+                  }),
+                );
+              }
+            }
+          }
+          investigation.updatedAt = clock().toISOString();
+          dependencies.repository.save(investigation);
+          sendJson(
+            response,
+            200,
+            {
+              intent: "QUESTION",
+              answer: organized.organization.summary ?? "已整理这条讨论。",
+              limitations: organized.organization.limitations,
+              discussion,
+              organization: organized.organization,
+            },
+            requestId,
+          );
+          return;
+        }
+        if (mission && /参加|参与|可以帮|我来/.test(input.message)) {
+          sendJson(
+            response,
+            200,
+            {
+              intent: "MISSION_INTEREST",
+              missionId: mission.id,
+              title: mission.title,
+              description: mission.description,
+            },
+            requestId,
+          );
+          return;
+        }
+        sendJson(
+          response,
+          200,
+          {
+            intent: "QUESTION",
+            answer: "当前调查仍在整理证据。",
+            limitations: investigation.knowledgeState.limitations,
+          },
+          requestId,
+        );
+        return;
+      }
+      if (request.method === "POST" && path === "/api/investigations/proposals") {
+        const input = parseOrThrow(CreateInvestigationRequestSchema, await readJson(request));
+        const normalized = input.question
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, " ")
+          .trim();
+        const existing = dependencies.repository.listInvestigations().find(
+          (item) =>
+            item.question
+              .toLowerCase()
+              .replace(/[^\p{L}\p{N}]+/gu, " ")
+              .trim() === normalized,
+        );
+        if (existing) {
+          sendJson(
+            response,
+            200,
+            {
+              proposalId: `existing-${existing.id}`,
+              question: input.question,
+              rationale: "已有相同 Investigation，无需重复创建。",
+              createdAt: clock().toISOString(),
+              investigationId: existing.id,
+            },
+            requestId,
+          );
+          return;
+        }
+        const proposalId = randomUUID();
+        dependencies.repository.saveProposal({
+          id: proposalId,
+          question: input.question,
+          createdAt: clock().toISOString(),
+        });
+        sendJson(
+          response,
+          201,
+          {
+            proposalId,
+            question: input.question,
+            rationale: "建议创建持续调查主题。",
+            createdAt: clock().toISOString(),
+          },
+          requestId,
+        );
+        return;
+      }
+      const proposalMatch = /^\/api\/investigations\/proposals\/([^/]+)\/confirm$/.exec(path);
+      if (request.method === "POST" && proposalMatch?.[1]) {
+        const proposalId = decodeURIComponent(proposalMatch[1]);
+        const proposal = dependencies.repository.getProposal(proposalId);
+        if (!proposal) throw new HttpError(404, "NOT_FOUND", "Investigation proposal not found.");
+        if (proposal.confirmedInvestigationId) {
+          const existing = dependencies.repository.get(proposal.confirmedInvestigationId);
+          if (existing) {
+            sendJson(response, 200, existing, requestId);
+            return;
+          }
+        }
+        const investigation = await prepareInvestigation(proposal.question);
+        proposal.confirmedInvestigationId = investigation.id;
+        dependencies.repository.saveProposal(proposal);
+        sendJson(response, 201, investigation, requestId);
+        return;
+      }
+      const maintenanceListMatch = /^\/api\/investigations\/([^/]+)\/maintenance-runs$/.exec(path);
+      if (request.method === "GET" && maintenanceListMatch?.[1]) {
+        const id = decodeURIComponent(maintenanceListMatch[1]);
+        if (!dependencies.repository.get(id))
+          throw new HttpError(404, "NOT_FOUND", "Investigation not found.");
+        sendJson(
+          response,
+          200,
+          dependencies.repository.listMaintenanceRuns(id).map((r) => MaintenanceRunSchema.parse(r)),
+          requestId,
+        );
+        return;
+      }
+      const maintenanceMatch = /^\/api\/investigations\/([^/]+)\/maintenance$/.exec(path);
+      if (request.method === "POST" && maintenanceMatch?.[1]) {
+        const investigation = dependencies.repository.get(decodeURIComponent(maintenanceMatch[1]));
+        if (!investigation) throw new HttpError(404, "NOT_FOUND", "Investigation not found.");
+        const startedAt = clock().toISOString();
+        const stateBefore = investigation.knowledgeState.status;
+        const [zhihu, global] = await Promise.all([
+          dependencies.searchService.searchZhihu(investigation.question),
+          dependencies.searchService.searchGlobal(investigation.question),
+        ]);
+        const nextState = evaluateSearchEvidence({
+          question: investigation.question,
+          zhihu,
+          global,
+        });
+        const previousEvidenceState = investigation.evidenceState;
+        const previousState = investigation.knowledgeState.status;
+        investigation.searches = { zhihu, global };
+        investigation.evidenceState = nextState;
+        const createdMissionIds: string[] = [];
+        const closedMissionIds: string[] = [];
+        for (const mission of [...investigation.missions]) {
+          if (
+            (mission.status === MISSION_STATUS.OPEN && !nextState.nextGap) ||
+            (mission.status === MISSION_STATUS.OPEN &&
+              nextState.nextGap &&
+              mission.evidenceGapId !== nextState.nextGap.id &&
+              investigation.evidence.some((e) => e.missionId === mission.id))
+          ) {
+            closeMission({
+              investigation,
+              missionId: mission.id,
+              reason: "维护后该 Mission 不再是当前优先证据缺口。",
+              closedAt: clock().toISOString(),
+            });
+            closedMissionIds.push(mission.id);
+          }
+        }
+        const nextGap = nextState.nextGap;
+        if (
+          nextGap &&
+          !investigation.missions.some(
+            (m) => m.evidenceGapId === nextGap.id && m.status === MISSION_STATUS.OPEN,
+          )
+        ) {
+          const mission = createEvidenceMission({
+            investigationId: investigation.id,
+            question: investigation.question,
+            gap: nextGap,
+          });
+          investigation.missions.push(mission);
+          createdMissionIds.push(mission.id);
+          appendAction(investigation.actions, AGENT_ACTION.CREATE_MISSION);
+        }
+        investigation.updatedAt = clock().toISOString();
+        dependencies.repository.save(investigation);
+        const run = {
+          runId: idFactory(),
+          investigationId: investigation.id,
+          trigger: "MANUAL",
+          startedAt,
+          completedAt: clock().toISOString(),
+          status: "SUCCEEDED" as const,
+          stateBefore,
+          stateAfter: investigation.knowledgeState.status,
+          changed:
+            JSON.stringify(previousEvidenceState) !== JSON.stringify(nextState) ||
+            previousState !== investigation.knowledgeState.status,
+          createdMissionIds,
+          closedMissionIds,
+          limitations: [...zhihu.limitations, ...global.limitations],
+        };
+        dependencies.repository.saveMaintenanceRun(run);
+        sendJson(
+          response,
+          200,
+          {
+            investigation,
+            changed: true,
+            provenance: { zhihu: zhihu.provenance, global: global.provenance },
+            limitations: [...zhihu.limitations, ...global.limitations],
+          },
+          requestId,
+        );
+        return;
+      }
+      const activityMatch = /^\/api\/investigations\/([^/]+)\/activity$/.exec(path);
+      if (request.method === "GET" && activityMatch?.[1]) {
+        const investigation = dependencies.repository.get(decodeURIComponent(activityMatch[1]));
+        if (!investigation) throw new HttpError(404, "NOT_FOUND", "Investigation not found.");
+        const events = [
+          {
+            eventId: `created-${investigation.id}`,
+            investigationId: investigation.id,
+            eventType: "CREATED",
+            actorType: "SYSTEM",
+            summary: "Investigation created.",
+            createdAt: investigation.createdAt,
+          },
+          ...investigation.discussions.map((d) => ({
+            eventId: d.id,
+            investigationId: investigation.id,
+            eventType: "DISCUSSION_ADDED",
+            actorType: "USER",
+            summary: d.content,
+            createdAt: d.createdAt,
+          })),
+          ...investigation.evidence.map((e) => ({
+            eventId: e.id,
+            investigationId: investigation.id,
+            eventType: "EVIDENCE_ADDED",
+            actorType: "USER",
+            summary: e.observation,
+            createdAt: e.createdAt,
+          })),
+          ...investigation.missions.map((m) => ({
+            eventId: `mission-${m.id}`,
+            investigationId: investigation.id,
+            eventType: m.status === MISSION_STATUS.OPEN ? "MISSION_OPENED" : "MISSION_CLOSED",
+            actorType: "AGENT",
+            summary: m.title,
+            createdAt: m.createdAt,
+          })),
+          ...(investigation.reevaluation
+            ? [
+                {
+                  eventId: `state-${investigation.reevaluation.updatedAt}`,
+                  investigationId: investigation.id,
+                  eventType: "KNOWLEDGE_STATE_CHANGED",
+                  actorType: "AGENT",
+                  summary: investigation.reevaluation.whyStateChanged,
+                  createdAt: investigation.reevaluation.updatedAt,
+                },
+              ]
+            : []),
+          ...(investigation.impactReceipts ?? []).map((r) => ({
+            eventId: `receipt-${r.evidenceId}`,
+            investigationId: investigation.id,
+            eventType: "IMPACT_RECEIPT_CREATED",
+            actorType: "SYSTEM",
+            summary: r.impactSummary,
+            createdAt: r.createdAt,
+          })),
+        ];
+        events.sort(
+          (a, b) => a.createdAt.localeCompare(b.createdAt) || a.eventId.localeCompare(b.eventId),
+        );
+        events.sort(
+          (a, b) => a.createdAt.localeCompare(b.createdAt) || a.eventId.localeCompare(b.eventId),
+        );
+        sendJson(response, 200, ActivityEventsResponseSchema.parse(events), requestId);
+        return;
+      }
       // ============================
       // GET /api/investigations
       // ============================
@@ -248,75 +748,27 @@ export function createRequestHandler(dependencies: AppDependencies) {
       // ============================
       if (request.method === "POST" && path === "/api/investigations") {
         const input = parseOrThrow(CreateInvestigationRequestSchema, await readJson(request));
-        const [zhihu, global] = await Promise.all([
-          dependencies.searchService.searchZhihu(input.question),
-          dependencies.searchService.searchGlobal(input.question),
-        ]);
-        const evidenceState = evaluateSearchEvidence({
-          question: input.question,
-          zhihu,
-          global,
-        });
-        const now = clock().toISOString();
-        const investigation: Investigation = {
-          id: idFactory(),
-          question: input.question,
-          searches: { zhihu, global },
-          evidenceState,
-          actions: buildInitialAgentActions(evidenceState),
-          missions: [],
-          evidence: [],
-          discussions: [],
-          discussionOrganizations: [],
-          llmRuns: [],
-          knowledgeState: createInitialKnowledgeState(evidenceState, now),
-          createdAt: now,
-          updatedAt: now,
-        };
-        dependencies.repository.save(investigation);
+        const investigation = await prepareInvestigation(input.question);
         sendJson(response, 201, investigation, requestId);
         return;
       }
 
-      // ============================
-      // GET /api/knowledge-objects/:id
-      // ============================
-      const objectMatch = /^\/api\/knowledge-objects\/([^/]+)$/.exec(path);
-      if (request.method === "GET" && objectMatch?.[1]) {
-        const investigation = dependencies.repository.get(decodeURIComponent(objectMatch[1]));
-        if (!investigation) throw new HttpError(404, "NOT_FOUND", "Knowledge Object not found.");
+      if (request.method === "GET" && path === "/api/discovery/topics") {
         sendJson(
           response,
           200,
-          {
-            id: investigation.id,
-            kind: "KNOWLEDGE_OBJECT",
-            question: investigation.question,
-            claims: [
-              ...investigation.knowledgeState.supported,
-              ...investigation.knowledgeState.unsupported,
-            ],
-            knowledgeState: investigation.knowledgeState,
-            evidenceGaps: [
-              investigation.evidenceState.nextGap,
-              investigation.evidenceState.candidateGap,
-            ].filter(Boolean),
-            missions: investigation.missions,
-            evidence: investigation.evidence,
-            discussions: investigation.discussions,
-            discussionOrganizations: investigation.discussionOrganizations,
-            llmRuns: investigation.llmRuns,
-            reevaluation: investigation.reevaluation,
-            provenance: {
-              search: {
-                zhihu: investigation.searches.zhihu.provenance,
-                global: investigation.searches.global.provenance,
-              },
-            },
-            updatedAt: investigation.updatedAt,
-          },
+          dependencies.repository.listInvestigations().map(projectDiscoveryTopic),
           requestId,
         );
+        return;
+      }
+      const objectMatch =
+        /^\/api\/knowledge-objects\/([^/]+)$/.exec(path) ??
+        /^\/api\/investigations\/([^/]+)\/community-view$/.exec(path);
+      if (request.method === "GET" && objectMatch?.[1]) {
+        const investigation = dependencies.repository.get(decodeURIComponent(objectMatch[1]));
+        if (!investigation) throw new HttpError(404, "NOT_FOUND", "Knowledge Object not found.");
+        sendJson(response, 200, projectKnowledgeObject(investigation), requestId);
         return;
       }
 
@@ -424,44 +876,15 @@ export function createRequestHandler(dependencies: AppDependencies) {
       // ============================
       const impactMatch = /^\/api\/evidence\/([^/]+)\/impact$/.exec(path);
       if (request.method === "GET" && impactMatch?.[1]) {
-        // Impact receipts are generated at submission time and stored temporarily.
-        // For now, we return a reconstructed receipt from the investigation state.
         const evidenceId = decodeURIComponent(impactMatch[1]);
         for (const investigation of dependencies.repository.listInvestigations()) {
-          const record = investigation.evidence.find((r) => r.id === evidenceId);
-          if (!record) continue;
-          // Find the mission and gap
-          const mission = investigation.missions.find((m) => m.id === record.missionId);
-          if (!mission) break;
-          const gap = [
-            investigation.evidenceState.nextGap,
-            investigation.evidenceState.candidateGap,
-            investigation.evidenceState.gapSuitability?.reframedGap,
-          ].find((candidate) => candidate?.id === mission.evidenceGapId);
-          if (!gap) break;
-          const stateBefore = investigation.reevaluation
-            ? investigation.knowledgeState.status === "SUPPORTED_WITH_LIMITATIONS"
-              ? "EARLY_EVIDENCE"
-              : "UNRESOLVED"
-            : investigation.knowledgeState.status;
-          const receipt = {
-            evidenceId: record.id,
-            missionId: mission.id,
-            investigationId: investigation.id,
-            accepted:
-              record.matchesGap &&
-              (record.grade === "E1_FIRST_HAND" || record.grade === "E2_ARTIFACT_BACKED"),
-            grade: record.grade,
-            affectedClaimId: gap.affectedClaimId,
-            stateBefore,
-            stateAfter: investigation.knowledgeState.status,
-            impactSummary:
-              investigation.reevaluation?.whyStateChanged ?? "No re-evaluation recorded.",
-            stillMissing: investigation.knowledgeState.limitations,
-            createdAt: record.createdAt,
-          };
-          sendJson(response, 200, receipt, requestId);
-          return;
+          const receipt = investigation.impactReceipts?.find(
+            (item) => item.evidenceId === evidenceId,
+          );
+          if (receipt) {
+            sendJson(response, 200, receipt, requestId);
+            return;
+          }
         }
         throw new HttpError(404, "NOT_FOUND", "Evidence not found.");
       }

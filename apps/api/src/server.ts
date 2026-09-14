@@ -1,3 +1,4 @@
+import "./env.js";
 import { createServer, type RequestListener } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -6,7 +7,7 @@ import { OfficialSearchAdapter } from "./adapters/official-search.js";
 import { FileSearchFixtureStore } from "./adapters/file-search-fixture-store.js";
 import { createRequestHandler, type AppDependencies } from "./app.js";
 import { FileSearchCache } from "./cache/file-search-cache.js";
-import { InMemoryInvestigationRepository } from "./repository.js";
+import { JsonInvestigationRepository } from "./repository.js";
 import { SearchService } from "./search-service.js";
 import {
   FakeDiscussionOrganizer,
@@ -54,7 +55,9 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   });
 
   const dependencies: AppDependencies = {
-    repository: new InMemoryInvestigationRepository(),
+    repository: new JsonInvestigationRepository(
+      resolve(process.cwd(), ".data/investigations.json"),
+    ),
     searchService,
     discussionOrganizer: new FallbackDiscussionOrganizer(
       new OpenAICompatibleDiscussionOrganizer({

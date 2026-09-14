@@ -450,3 +450,14 @@ Circle Landing
 ## 15. 一句话总结
 
 > 先让用户像在知乎一样发现、阅读和参与一个问题，再让 Agent 把讨论组织成持续演化的共享知识；当知识有缺口时，用户可以选择参与 Mission，并清楚看到自己的贡献如何改变了这个社区正在理解的问题。
+
+## 16. v3 Golden Demo 当前实现与验收边界（2026-09-14）
+
+本轮页面信息优先级以 `docs/SPEC.md` §12 为准，覆盖上文历史顺序：发现 → 公开人类讨论 → Agent 共识/分歧/未知 → 邀请 → 对话 → 用户确认 → 回执。`/knowledge-object/:id` 与 `/investigation/:id` 使用同一组件和共享 Contract，不再并行维护 JSON 弱类型页面。
+
+- 首页自动请求服务端准备固定主题，展示真实 projection；没有前端 Mock fallback。
+- 只有对话确认动作调用服务端写入；摘要可以直接修改或取消。主路径不再从 MockContribution 推导 acceptance。
+- 合成示例明确标记 GOLDEN_FIXTURE；公开来源各自展示 LIVE/CACHE/GOLDEN_FIXTURE。规则摘录不假冒实时 LLM。
+- 暂不提供通用创建、个人投稿统计、普通社交流；旧假数据页面不再作为演示入口。
+- 响应式、键盘焦点约束、Escape 取消已实现；浏览器工具因 `unsupported Codex auth method: apikey` 无法启动，本轮不能声称桌面/移动浏览器人工验收完成。
+- 自动化证据与运行步骤见 `docs/DEMO_V3.md`。30 秒理解目标需真人观察测试，不以代码检查替代。

@@ -71,6 +71,7 @@ export interface AppDependencies {
     listContents(oauthToken: string, offset?: string, limit?: number): Promise<ZhihuCreatedContentsResponse>;
   };
   discussionOrganizer?: DiscussionOrganizer;
+  fakeDiscussionOrganizer?: DiscussionOrganizer;
   clock?: () => Date;
   idFactory?: () => string;
 }

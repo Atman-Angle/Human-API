@@ -1006,6 +1006,133 @@ a {
   line-height: 1.7;
 }
 
+/* ---- 求证问题卡片（问卷式，不是帖子）---- */
+.verify-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 262px;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 5px 20px rgba(26, 55, 91, 0.035);
+}
+.verify-card-body {
+  min-width: 0;
+  padding: 22px 26px 20px;
+}
+.verify-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.verify-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.verify-time {
+  color: var(--muted);
+}
+.verify-question {
+  margin: 0 0 16px;
+  font-size: 20px;
+  line-height: 1.45;
+}
+.verify-block {
+  margin-top: 15px;
+}
+.verify-block-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.verify-gap-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.verify-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.verify-people span {
+  padding: 4px 11px;
+  color: var(--blue-ink);
+  background: var(--blue-soft);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.verify-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 13px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.verify-card-side {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 22px 22px 20px;
+  background: var(--soft);
+  border-left: 1px solid var(--line);
+}
+.verify-side-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 600;
+}
+.verify-side-note {
+  margin: 0;
+  color: var(--sub);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.verify-side-expect {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--sub);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.verify-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: auto;
+  padding: 11px 14px;
+  color: #fff;
+  background: var(--blue);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.verify-cta:hover {
+  background: #0f63e0;
+}
+
 /* ---- 聚合帖详情 ---- */
 .post-page {
   padding: 26px 0 70px;

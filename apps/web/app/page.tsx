@@ -53,6 +53,7 @@ import {
 } from "@/lib/mock-circles";
 import {
   createMockInvestigation,
+  getMockInvestigation,
   listMockContributions,
   listMockInvestigations,
   mockInvestigationToListItem,
@@ -201,98 +202,94 @@ function formatRelativeTime(value: string): string {
   return `${Math.floor(minutes / 1440)}天前`;
 }
 
-function FeedCard({ item, onOpen }: { item: MockFeedItem; onOpen: (id: string) => void }) {
+function VerifyQuestionCard({
+  item,
+  onOpen,
+}: {
+  item: MockFeedItem;
+  onOpen: (id: string) => void;
+}) {
+  const investigation = getMockInvestigation(item.id);
+  const gap = investigation?.evidenceState.nextGap;
   const stateClass = item.knowledgeState.toLowerCase();
   const stateLabel = knowledgeLabels[item.knowledgeState];
-  const actionLabel = item.knowledgeState === "UNRESOLVED" ? "查看缺口" : "查看分析";
   return (
-    <article className="feed-card">
-      <button className="feed-card-main" type="button" onClick={() => onOpen(item.id)}>
-        <div className="feed-author">
-          <span className="author-avatar">知</span>
-          <span>@{item.author}</span>
-          <i />
-          <span>{formatRelativeTime(item.createdAt)}</span>
+    <article className="verify-card">
+      <div className="verify-card-body">
+        <div className="verify-card-meta">
+          <span className="verify-tag">
+            <Target size={13} />
+            求证
+          </span>
+          <span className={`agent-state agent-${stateClass}`}>
+            <span className="status-dot" />
+            {stateLabel}
+          </span>
+          <span className="verify-time">{formatRelativeTime(item.updatedAt)}更新</span>
         </div>
-        <h2>{item.question}</h2>
-        <p className="feed-excerpt">{item.excerpt}</p>
-        <div className="claim-preview-list">
-          {item.claims.map((claim) => (
-            <div className="claim-preview-item" key={claim.id}>
-              <span className={`claim-confidence claim-${claim.confidence.toLowerCase()}`}>
-                {claim.confidence === "HIGH"
-                  ? "较可信"
-                  : claim.confidence === "MEDIUM"
-                    ? "待验证"
-                    : "证据不足"}
-              </span>
-              <p>{claim.text}</p>
-              <div className="claim-counts">
-                <span className="claim-support">支持 {claim.supportCount}</span>
-                <span className="claim-oppose">反驳 {claim.opposeCount}</span>
-              </div>
+        <h2 className="verify-question">{item.question}</h2>
+
+        {item.claims.length > 0 ? (
+          <div className="verify-block">
+            <span className="verify-block-label">当前判断</span>
+            <div className="claim-preview-list">
+              {item.claims.map((claim) => (
+                <div className="claim-preview-item" key={claim.id}>
+                  <span className={`claim-confidence claim-${claim.confidence.toLowerCase()}`}>
+                    {claim.confidence === "HIGH"
+                      ? "较可信"
+                      : claim.confidence === "MEDIUM"
+                        ? "待验证"
+                        : "证据不足"}
+                  </span>
+                  <p>{claim.text}</p>
+                  <div className="claim-counts">
+                    <span className="claim-support">支持 {claim.supportCount}</span>
+                    <span className="claim-oppose">反驳 {claim.opposeCount}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        ) : null}
+
+        <div className="verify-block">
+          <span className="verify-block-label">还缺什么</span>
+          <p className="verify-gap-text">{item.gapText}</p>
         </div>
-        <div className="feed-conflict">
-          <span>主要分歧</span>
-          <p>{item.conflictText}</p>
+
+        {gap ? (
+          <div className="verify-block">
+            <span className="verify-block-label">需要谁来回答</span>
+            <div className="verify-people">
+              {gap.targetParticipants.map((participant) => (
+                <span key={participant}>{participant}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="verify-card-stats">
+          <span>证据缺口 {gap ? 1 : 0} 个</span>
+          <span>{item.discussionCount} 条相关讨论</span>
+          <span>{item.firstHandCount} 条第一手经历</span>
+          <span>{item.evidenceCount} 条已收录证据</span>
         </div>
-        <div className="feed-stats">
-          <span>
-            <CheckCircle2 size={15} />
-            {item.evidenceCount} 条证据
-          </span>
-          <span>
-            <MessageCircle size={15} />
-            {item.discussionCount} 条讨论
-          </span>
-          {item.firstHandCount > 0 ? (
-            <span>
-              <Users size={15} />
-              {item.firstHandCount} 条第一手经历
-            </span>
-          ) : (
-            <span>
-              <StarIcon />
-              持续求证中
-            </span>
-          )}
-        </div>
-      </button>
-      <aside className="feed-agent-card">
-        <div className="agent-card-label">
-          <Sparkles size={15} />
-          Agent
-        </div>
-        <span className={`agent-state agent-${stateClass}`}>
-          <span className="status-dot" />
-          {stateLabel}
+      </div>
+      <aside className="verify-card-side">
+        <span className="verify-side-kicker">
+          <Users size={14} />
+          问卷式贡献
         </span>
-        <div className="agent-metric">
-          <strong>{item.discussionCount}</strong>
-          <span>条相关讨论</span>
-        </div>
-        <div className="agent-metric">
-          <strong>{item.firstHandCount}</strong>
-          <span>{item.firstHandCount === 0 ? "等待第一手经历" : "条第一手经历"}</span>
-        </div>
-        <p className="agent-gap">
-          当前缺口
-          <br />
-          <b>{item.gapText}</b>
-        </p>
-        <button className="agent-open" type="button" onClick={() => onOpen(item.id)}>
-          {actionLabel}
+        <p className="verify-side-note">只提交一条真实经历，不要求你证明完整结论。</p>
+        {gap?.expectedValue ? <p className="verify-side-expect">{gap.expectedValue}</p> : null}
+        <button className="verify-cta" type="button" onClick={() => onOpen(item.id)}>
+          贡献我的经历
           <ArrowRight size={15} />
         </button>
       </aside>
     </article>
   );
-}
-
-function StarIcon() {
-  return <span className="star-glyph">★</span>;
 }
 
 function CircleHeader({
@@ -436,7 +433,6 @@ function PostsHome({
   notice,
   onAsk,
   onVerify,
-  onMine,
 }: {
   posts: MockPost[];
   circleSlug: string | null;
@@ -448,7 +444,6 @@ function PostsHome({
   notice?: string | null;
   onAsk: () => void;
   onVerify: () => void;
-  onMine: () => void;
 }) {
   const circles = listMockCircles();
   const isPlaza = circleSlug === "more";
@@ -458,6 +453,8 @@ function PostsHome({
     : posts;
   const [retrieving, setRetrieving] = useState(false);
   const [integratedAt, setIntegratedAt] = useState<Record<string, string>>({});
+  const [showAllPosts, setShowAllPosts] = useState(false);
+  const visiblePosts = showAllPosts ? listedPosts : listedPosts.slice(0, 6);
 
   function handleRetrieve(slug: string) {
     setRetrieving(true);
@@ -545,7 +542,7 @@ function PostsHome({
               <p>Agent 先检索知乎讨论，再重新生成标题与结构；点开可以看到来源与知识边界。</p>
             </section>
             <div className="feed-list">
-              {listedPosts.map((post) => (
+              {visiblePosts.map((post) => (
                 <AggregatedPostCard key={post.id} post={post} onOpen={onOpenPost} showCircle />
               ))}
             </div>
@@ -573,15 +570,18 @@ function PostsHome({
               ) : (
                 <div className="feed-list">
                   {verifyItems.slice(0, 2).map((item) => (
-                    <FeedCard item={item} onOpen={onOpenInvestigation} key={item.id} />
+                    <VerifyQuestionCard item={item} onOpen={onOpenInvestigation} key={item.id} />
                   ))}
                 </div>
               )}
             </section>
-            <button className="load-more" type="button" onClick={onMine}>
-              ↓ 加载更多
-            </button>
-            <p className="load-more-end">— 没有更多了 —</p>
+            {visiblePosts.length < listedPosts.length ? (
+              <button className="load-more" type="button" onClick={() => setShowAllPosts(true)}>
+                ↓ 加载更多聚合帖
+              </button>
+            ) : (
+              <p className="load-more-end">— 没有更多了 —</p>
+            )}
           </>
         )}
       </div>
@@ -652,7 +652,7 @@ function VerifyHome({
         ) : null}
         <div className="feed-list">
           {items.map((item) => (
-            <FeedCard item={item} onOpen={onOpen} key={item.id} />
+            <VerifyQuestionCard item={item} onOpen={onOpen} key={item.id} />
           ))}
         </div>
       </div>
@@ -2032,7 +2032,6 @@ export default function HomePage() {
           notice={feedNotice}
           onAsk={() => setPanel("search")}
           onVerify={() => setPanel("verify")}
-          onMine={() => setPanel("mine")}
         />
       )}
       {showComposer ? (

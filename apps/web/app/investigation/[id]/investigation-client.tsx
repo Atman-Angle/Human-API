@@ -270,7 +270,8 @@ export default function InvestigationClient({ investigationId }: { investigation
               <pre>{JSON.stringify(view, null, 2)}</pre>
             </details>
             <footer className="hg-footer">
-              刷新读取服务端保存的状态与回执。演示数据保存在 API 内存中，服务重启会重置。
+              刷新读取 API
+              持久化保存的状态、证据与回执。若服务端存储不可用，页面会显示真实读取失败。
               <br />
               最后更新：{new Date(view.updatedAt).toLocaleString("zh-CN")}
             </footer>

@@ -46,9 +46,7 @@ import {
   listMissions,
 } from "@/lib/api-client";
 import {
-  createMockInvestigation,
   listMockContributions,
-  listMockInvestigations,
   mockInvestigationToListItem,
   type ContributionType,
   type MockContribution,
@@ -2000,9 +1998,7 @@ export default function HomePage() {
   const [creatingInvestigation, setCreatingInvestigation] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [feedNotice, setFeedNotice] = useState<string | null>(null);
-  const [investigations, setInvestigations] = useState<MockFeedItem[]>(() =>
-    listMockInvestigations(),
-  );
+  const [investigations, setInvestigations] = useState<MockFeedItem[]>([]);
   const [loadingInvestigations, setLoadingInvestigations] = useState(true);
   const [missions, setMissions] = useState<
     Array<{
@@ -2026,10 +2022,7 @@ export default function HomePage() {
     listInvestigations()
       .then((items) => {
         if (!active) return;
-        if (items.length === 0) {
-          setFeedNotice("演示数据 · 后端当前还没有公开求证，先展示 Mock 案例");
-          return;
-        }
+
         setInvestigations(
           items.map((item) => ({
             ...item,
@@ -2049,7 +2042,7 @@ export default function HomePage() {
       .catch((error) => {
         if (!active) return;
         setPageError(null);
-        setFeedNotice(`演示数据 · 未连接到求证服务（${getClientErrorMessage(error)}）`);
+        setFeedNotice(`无法加载研究帖子（${getClientErrorMessage(error)}），请检查服务后重试。`);
       })
       .finally(() => {
         if (active) setLoadingInvestigations(false);
@@ -2111,34 +2104,17 @@ export default function HomePage() {
     event.preventDefault();
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) return;
-    const startedAt = Date.now();
     setCreatingInvestigation(true);
     setCompletedInvestigationId(null);
     setAskSession((current) => current + 1);
     setPageError(null);
-    if (getSearchRoute(trimmedQuestion) === "simple") {
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, Math.max(0, 4_500 - (Date.now() - startedAt))),
-      );
-      setCompletedInvestigationId("direct-answer");
-      setCreatingInvestigation(false);
-      return;
-    }
     try {
       const created = await createInvestigation(trimmedQuestion);
       setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))),
-      );
       setCompletedInvestigationId(created.id);
     } catch (error) {
-      const created = createMockInvestigation(trimmedQuestion);
-      setInvestigations((items) => [mockInvestigationToListItem(created), ...items]);
-      setFeedNotice(`后端未接受这次求证（${getErrorMessage(error)}），已改用本地演示数据。`);
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, Math.max(0, 11000 - (Date.now() - startedAt))),
-      );
-      setCompletedInvestigationId(created.id);
+      setFeedNotice(`后端未接受这次求证（${getErrorMessage(error)}），请检查服务后重试。`);
+      setPageError(getErrorMessage(error));
     } finally {
       setCreatingInvestigation(false);
     }

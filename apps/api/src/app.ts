@@ -31,12 +31,14 @@ import { submitMissionEvidence } from "./evidence-intake.js";
 import { closeMission } from "./mission-lifecycle.js";
 import type { InvestigationRepository } from "./repository.js";
 import type { SearchService } from "./search-service.js";
+import type { HotListResponse } from "@human-api/contracts";
 import { DiscussionInputSchema } from "@human-api/contracts";
 import type { DiscussionOrganizer } from "./llm/discussion-organizer.js";
 
 export interface AppDependencies {
   repository: InvestigationRepository;
   searchService: SearchService;
+  hotList?: { list(limit?: number): Promise<HotListResponse> };
   discussionOrganizer?: DiscussionOrganizer;
   clock?: () => Date;
   idFactory?: () => string;
@@ -750,6 +752,18 @@ export function createRequestHandler(dependencies: AppDependencies) {
         const input = parseOrThrow(CreateInvestigationRequestSchema, await readJson(request));
         const investigation = await prepareInvestigation(input.question);
         sendJson(response, 201, investigation, requestId);
+        return;
+      }
+
+      if (request.method === "GET" && path === "/api/discovery/hot-list") {
+        if (!dependencies.hotList)
+          throw new HttpError(503, "UPSTREAM_UNAVAILABLE", "Hot list is not configured.", true);
+        sendJson(
+          response,
+          200,
+          await dependencies.hotList.list(Number(url.searchParams.get("limit") ?? 10)),
+          requestId,
+        );
         return;
       }
 

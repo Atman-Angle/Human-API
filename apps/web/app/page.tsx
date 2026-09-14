@@ -44,6 +44,7 @@ import {
   createInvestigation,
   listInvestigations,
   listMissions,
+  prepareGoldenDemo,
 } from "@/lib/api-client";
 import {
   listMockContributions,
@@ -2012,13 +2013,19 @@ export default function HomePage() {
 
   useEffect(() => {
     let active = true;
-    listMissions()
-      .then((items) => {
-        if (active) setMissions(items);
-      })
-      .catch(() => {
+    async function loadCommunity() {
+      try {
+        let missionItems = await listMissions();
+        if (missionItems.length === 0) {
+          await prepareGoldenDemo();
+          missionItems = await listMissions();
+        }
+        if (active) setMissions(missionItems);
+      } catch {
         if (active) setMissions([]);
-      });
+      }
+    }
+    void loadCommunity();
     listInvestigations()
       .then((items) => {
         if (!active) return;

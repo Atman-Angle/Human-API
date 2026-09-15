@@ -40,9 +40,12 @@ import type {
 } from "@human-api/contracts";
 import { DiscussionInputSchema } from "@human-api/contracts";
 import type { DiscussionOrganizer } from "./llm/discussion-organizer.js";
-import { buildAuthorizeUrl, exchangeCodeForToken, getUserInfo, type ZhihuUserResponse } from "./adapters/zhihu-oauth.js";
-import type { OfficialUserAdapter } from "./adapters/zhihu-user.js";
-
+import {
+  buildAuthorizeUrl,
+  exchangeCodeForToken,
+  getUserInfo,
+  type ZhihuUserResponse,
+} from "./adapters/zhihu-oauth.js";
 
 export interface AppDependencies {
   repository: InvestigationRepository;
@@ -67,10 +70,19 @@ export interface AppDependencies {
     getAccessToken?(sessionId: string): string | null;
   };
   userApi?: {
-    listFollowees(oauthToken: string, offset?: string, limit?: number): Promise<ZhihuFolloweesResponse>;
-    listContents(oauthToken: string, offset?: string, limit?: number): Promise<ZhihuCreatedContentsResponse>;
+    listFollowees(
+      oauthToken: string,
+      offset?: string,
+      limit?: number,
+    ): Promise<ZhihuFolloweesResponse>;
+    listContents(
+      oauthToken: string,
+      offset?: string,
+      limit?: number,
+    ): Promise<ZhihuCreatedContentsResponse>;
   };
   discussionOrganizer?: DiscussionOrganizer;
+  fakeDiscussionOrganizer?: DiscussionOrganizer;
   clock?: () => Date;
   idFactory?: () => string;
 }
@@ -103,7 +115,8 @@ function sendJson(
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "X-Request-Id": requestId,
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": "http://localhost:3001",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   });
@@ -137,11 +150,10 @@ function parseSessionCookie(request: IncomingMessage): string | null {
 }
 
 function setSessionCookie(response: ServerResponse, sessionId: string): void {
-  response.setHeader("Set-Cookie", `zhihu_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
-}
-
-function clearSessionCookie(response: ServerResponse): void {
-  response.setHeader("Set-Cookie", "zhihu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+  response.setHeader(
+    "Set-Cookie",
+    `zhihu_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`,
+  );
 }
 
 function appendAction(actions: AgentAction[], action: AgentAction): void {
@@ -178,11 +190,11 @@ export function createRequestHandler(dependencies: AppDependencies) {
     // --- LLM-powered per-source summary (backfill llmSummary) ---
     if (dependencies.discussionOrganizer) {
       try {
-        const allSources = [
-          ...zhihu.items,
-          ...global.items,
-        ];
-        const { summaries } = await dependencies.discussionOrganizer.summarizeSources(question, allSources);
+        const allSources = [...zhihu.items, ...global.items];
+        const { summaries } = await dependencies.discussionOrganizer.summarizeSources(
+          question,
+          allSources,
+        );
         for (const src of allSources) {
           if (summaries[src.id]) {
             src.llmSummary = summaries[src.id];
@@ -200,11 +212,11 @@ export function createRequestHandler(dependencies: AppDependencies) {
     // --- LLM-powered synthesized report ---
     if (dependencies.discussionOrganizer) {
       try {
-        const allSources = [
-          ...zhihu.items,
-          ...global.items,
-        ];
-        const { report } = await dependencies.discussionOrganizer.synthesizeReport(question, allSources);
+        const allSources = [...zhihu.items, ...global.items];
+        const { report } = await dependencies.discussionOrganizer.synthesizeReport(
+          question,
+          allSources,
+        );
         investigation.synthesizedReport = report;
       } catch (error) {
         console.error(
@@ -829,7 +841,7 @@ export function createRequestHandler(dependencies: AppDependencies) {
           response,
           200,
           {
-            mission,
+            mission: { ...mission, evidenceCount: evidence.length },
             evidence,
             gap: gap ?? null,
             investigationId: investigation.id,
@@ -999,13 +1011,14 @@ export function createRequestHandler(dependencies: AppDependencies) {
         throw new HttpError(404, "NOT_FOUND", "Evidence not found.");
       }
 
-            // ============================
+      // ============================
       // Zhihu OAuth Routes
       // ============================
       // GET /api/auth/zhihu/url
       if (request.method === "GET" && path === "/api/auth/zhihu/url") {
         const oauthConfig = dependencies.oauth;
-        if (!oauthConfig?.appId) throw new HttpError(503, "AUTH_REQUIRED", "OAuth not configured (ZHIHU_APP_ID).");
+        if (!oauthConfig?.appId)
+          throw new HttpError(503, "AUTH_REQUIRED", "OAuth not configured (ZHIHU_APP_ID).");
         const redirectUri = url.searchParams.get("redirect_uri") || oauthConfig.redirectUri;
         const state = dependencies.oauthStateStore?.create(redirectUri);
         if (!state) throw new HttpError(500, "INTERNAL_ERROR", "Failed to create OAuth state.");
@@ -1017,8 +1030,9 @@ export function createRequestHandler(dependencies: AppDependencies) {
       // POST /api/auth/zhihu/callback
       if (request.method === "POST" && path === "/api/auth/zhihu/callback") {
         const oauthConfig = dependencies.oauth;
-        if (!oauthConfig?.appId || !oauthConfig?.appKey) throw new HttpError(503, "AUTH_REQUIRED", "OAuth not configured.");
-        const body = await readJson(request) as Record<string, unknown>;
+        if (!oauthConfig?.appId || !oauthConfig?.appKey)
+          throw new HttpError(503, "AUTH_REQUIRED", "OAuth not configured.");
+        const body = (await readJson(request)) as Record<string, unknown>;
         const code = String(body.code || body.authorization_code || "");
         const returnedState = String(body.state || "");
 
@@ -1036,7 +1050,12 @@ export function createRequestHandler(dependencies: AppDependencies) {
         const effectiveRedirectUri = verifiedRedirectUri || oauthConfig.redirectUri;
 
         // Exchange code for token
-        const tokenResult = await exchangeCodeForToken(oauthConfig.appId, oauthConfig.appKey, effectiveRedirectUri, code);
+        const tokenResult = await exchangeCodeForToken(
+          oauthConfig.appId,
+          oauthConfig.appKey,
+          effectiveRedirectUri,
+          code,
+        );
         const accessToken = tokenResult.access_token;
 
         // Get user info
@@ -1044,25 +1063,52 @@ export function createRequestHandler(dependencies: AppDependencies) {
 
         // Create session
         const sessionId = dependencies.authSessionStore?.create(
-          { uid: userInfo.uid, fullname: userInfo.fullname, headline: userInfo.headline ?? undefined, avatar: userInfo.avatar_path ?? undefined },
+          {
+            uid: userInfo.uid,
+            fullname: userInfo.fullname,
+            headline: userInfo.headline ?? undefined,
+            avatar: userInfo.avatar_path ?? undefined,
+          },
           accessToken,
         );
         if (!sessionId) throw new HttpError(500, "INTERNAL_ERROR", "Failed to create session.");
 
         setSessionCookie(response, sessionId);
-        sendJson(response, 200, {
-          user: { uid: userInfo.uid, fullname: userInfo.fullname, headline: userInfo.headline ?? "", avatar: userInfo.avatar_path ?? "" },
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        }, requestId);
+        sendJson(
+          response,
+          200,
+          {
+            user: {
+              uid: userInfo.uid,
+              fullname: userInfo.fullname,
+              headline: userInfo.headline ?? "",
+              avatar: userInfo.avatar_path ?? "",
+            },
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+          requestId,
+        );
         return;
       }
 
       // GET /api/auth/zhihu/me
       if (request.method === "GET" && path === "/api/auth/zhihu/me") {
         const sessionId = parseSessionCookie(request);
-        if (!sessionId) return sendJson(response, 401, { error: { code: "AUTH_REQUIRED", message: "未登录" } }, requestId);
+        if (!sessionId)
+          return sendJson(
+            response,
+            401,
+            { error: { code: "AUTH_REQUIRED", message: "未登录" } },
+            requestId,
+          );
         const session = dependencies.authSessionStore?.get(sessionId);
-        if (!session) return sendJson(response, 401, { error: { code: "AUTH_REQUIRED", message: "会话已过期" } }, requestId);
+        if (!session)
+          return sendJson(
+            response,
+            401,
+            { error: { code: "AUTH_REQUIRED", message: "会话已过期" } },
+            requestId,
+          );
         sendJson(response, 200, session, requestId);
         return;
       }
@@ -1102,7 +1148,7 @@ export function createRequestHandler(dependencies: AppDependencies) {
         sendJson(response, 200, result, requestId);
         return;
       }
-throw new HttpError(404, "NOT_FOUND", "Route not found.");
+      throw new HttpError(404, "NOT_FOUND", "Route not found.");
     } catch (error) {
       const httpError = toHttpError(error);
       sendJson(

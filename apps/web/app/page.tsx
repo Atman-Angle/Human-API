@@ -398,7 +398,26 @@ function FeedHome({
   useEffect(() => {
     getHotList(8)
       .then((response) => setHotItems(response.items))
-      .catch((error) => setHotListNotice(getErrorMessage(error)));
+      .catch((error) => {
+        setHotListNotice(getErrorMessage(error));
+        setHotItems([
+          {
+            title: "AI Coding 实际改变了初级开发者哪些工作？",
+            url: "https://www.zhihu.com/search?q=AI%20Coding",
+            summary: "Golden Demo 演示入口（后端未连接）",
+          },
+          {
+            title: "大模型如何影响真实工作流程？",
+            url: "https://www.zhihu.com/search?q=%E5%A4%A7%E6%A8%A1%E5%9E%8B",
+            summary: "Golden Demo 演示入口（后端未连接）",
+          },
+          {
+            title: "普通人如何判断 AI 工具是否真的有用？",
+            url: "https://www.zhihu.com/search?q=AI%20%E5%B7%A5%E5%85%B7",
+            summary: "Golden Demo 演示入口（后端未连接）",
+          },
+        ]);
+      });
   }, []);
   async function handleGenerateFromHotList() {
     setGeneratingPosts(true);

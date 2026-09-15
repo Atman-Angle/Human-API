@@ -16,7 +16,6 @@ import {
 import type {
   ChatRouteResponse,
   EvidenceIntakeResponse,
-  ImpactReceipt,
   KnowledgeObjectProjection,
 } from "@human-api/contracts";
 import {
@@ -29,7 +28,6 @@ import {
 import {
   CommunityHeader,
   ConversationDrawer,
-  Receipt,
   SourceMode,
   errorMessage,
   knowledgeLabels,
@@ -44,7 +42,6 @@ export default function InvestigationClient({ investigationId }: { investigation
   const [view, setView] = useState<KnowledgeObjectProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
-  const [receipt, setReceipt] = useState<ImpactReceipt | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [reply, setReply] = useState("");
   const [replying, setReplying] = useState(false);
@@ -70,7 +67,6 @@ export default function InvestigationClient({ investigationId }: { investigation
       .then((result) => {
         if (!cancelled) {
           setView(result);
-          setReceipt(result.impactReceipts.at(-1) ?? null);
           setError(null);
         }
       })
@@ -90,7 +86,6 @@ export default function InvestigationClient({ investigationId }: { investigation
 
   function complete(result: EvidenceIntakeResponse) {
     setJoining(false);
-    setReceipt(result.receipt);
     setAttempt((v) => v + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -204,8 +199,6 @@ export default function InvestigationClient({ investigationId }: { investigation
                 </div>
               </header>
 
-              {receipt && <Receipt receipt={receipt} />}
-
               <article className="hg-knowledge-article">
                 <div className="hg-article-kicker">
                   <Bot size={15} /> 来自公开来源 ·{" "}
@@ -217,21 +210,37 @@ export default function InvestigationClient({ investigationId }: { investigation
                     <div className="hg-report-content">
                       {view.synthesizedReport.split("\n").map((line, i) => {
                         if (line.startsWith("### ")) {
-                          return <h3 key={i} className="hg-report-h3">{line.slice(4)}</h3>;
+                          return (
+                            <h3 key={i} className="hg-report-h3">
+                              {line.slice(4)}
+                            </h3>
+                          );
                         }
                         if (line.startsWith("## ")) {
-                          return <h2 key={i} className="hg-report-h2">{line.slice(3)}</h2>;
+                          return (
+                            <h2 key={i} className="hg-report-h2">
+                              {line.slice(3)}
+                            </h2>
+                          );
                         }
                         if (line.startsWith("---")) {
                           return <hr key={i} className="hg-report-hr" />;
                         }
                         if (line.startsWith("*") && line.endsWith("*")) {
-                          return <p key={i} className="hg-report-note">{line.slice(1, -1)}</p>;
+                          return (
+                            <p key={i} className="hg-report-note">
+                              {line.slice(1, -1)}
+                            </p>
+                          );
                         }
                         if (line.trim() === "") {
                           return <br key={i} />;
                         }
-                        return <p key={i} className="hg-report-p">{line}</p>;
+                        return (
+                          <p key={i} className="hg-report-p">
+                            {line}
+                          </p>
+                        );
                       })}
                     </div>
                   </div>
@@ -260,7 +269,9 @@ export default function InvestigationClient({ investigationId }: { investigation
                                 <span>{source.authorName}</span>
                               </div>
                             )}
-                            <p className="hg-source-excerpt">{source.llmSummary ?? source.excerpt}</p>
+                            <p className="hg-source-excerpt">
+                              {source.llmSummary ?? source.excerpt}
+                            </p>
                             <a
                               className="hg-source-link"
                               href={source.url}

@@ -29,6 +29,7 @@ tmp_*.py
 
 # Internal development documents (not for public GitHub)
 /docs/
+apps/web/docs/
 AGENTS.md
 CONTRIBUTING.md
 FINAL_DEMO_QA_REPORT.md

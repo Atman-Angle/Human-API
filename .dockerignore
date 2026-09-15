@@ -1,0 +1,15 @@
+node_modules
+.git
+.next
+out
+dist
+.cache
+.data
+.codex
+.codex-runtime
+coverage
+*.log
+.env
+.env.*
+!.env.example
+apps/web/.env.local

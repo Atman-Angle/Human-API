@@ -42,3 +42,4 @@ TASKS.md
 
 .codex/
 
+!.env.production.example

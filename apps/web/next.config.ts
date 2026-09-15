@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const apiInternalUrl = process.env.API_INTERNAL_URL ?? "http://localhost:3000";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@human-api/contracts"],
@@ -7,7 +9,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:3000/api/:path*",
+        destination: `${apiInternalUrl}/api/:path*`,
       },
     ];
   },

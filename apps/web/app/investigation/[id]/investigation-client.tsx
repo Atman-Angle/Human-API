@@ -217,21 +217,37 @@ export default function InvestigationClient({ investigationId }: { investigation
                     <div className="hg-report-content">
                       {view.synthesizedReport.split("\n").map((line, i) => {
                         if (line.startsWith("### ")) {
-                          return <h3 key={i} className="hg-report-h3">{line.slice(4)}</h3>;
+                          return (
+                            <h3 key={i} className="hg-report-h3">
+                              {line.slice(4)}
+                            </h3>
+                          );
                         }
                         if (line.startsWith("## ")) {
-                          return <h2 key={i} className="hg-report-h2">{line.slice(3)}</h2>;
+                          return (
+                            <h2 key={i} className="hg-report-h2">
+                              {line.slice(3)}
+                            </h2>
+                          );
                         }
                         if (line.startsWith("---")) {
                           return <hr key={i} className="hg-report-hr" />;
                         }
                         if (line.startsWith("*") && line.endsWith("*")) {
-                          return <p key={i} className="hg-report-note">{line.slice(1, -1)}</p>;
+                          return (
+                            <p key={i} className="hg-report-note">
+                              {line.slice(1, -1)}
+                            </p>
+                          );
                         }
                         if (line.trim() === "") {
                           return <br key={i} />;
                         }
-                        return <p key={i} className="hg-report-p">{line}</p>;
+                        return (
+                          <p key={i} className="hg-report-p">
+                            {line}
+                          </p>
+                        );
                       })}
                     </div>
                   </div>
@@ -260,7 +276,9 @@ export default function InvestigationClient({ investigationId }: { investigation
                                 <span>{source.authorName}</span>
                               </div>
                             )}
-                            <p className="hg-source-excerpt">{source.llmSummary ?? source.excerpt}</p>
+                            <p className="hg-source-excerpt">
+                              {source.llmSummary ?? source.excerpt}
+                            </p>
                             <a
                               className="hg-source-link"
                               href={source.url}

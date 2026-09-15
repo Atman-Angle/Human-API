@@ -6,6 +6,7 @@ import {
   FallbackDiscussionOrganizer,
   LLMAdapterError,
   OpenAICompatibleDiscussionOrganizer,
+  type DiscussionOrganizer,
 } from "../src/llm/discussion-organizer.js";
 import { InMemoryInvestigationRepository } from "../src/repository.js";
 import type { SearchService } from "../src/search-service.js";
@@ -55,9 +56,7 @@ describe("discussion organization", () => {
       organize: async () => {
         throw new LLMAdapterError("LLM_TIMEOUT", "timeout");
       },
-        summarizeSources: async () => ({ summaries: {}, run: {} }) as any,
-        synthesizeReport: async () => ({ report: "", limitations: [], run: {} }) as any,
-    };
+    } as unknown as DiscussionOrganizer;
     const result = await new FallbackDiscussionOrganizer(
       live,
       new FakeDiscussionOrganizer(),
@@ -81,9 +80,7 @@ it("does not reuse cached organization across discussion ids", async () => {
         limitations: [],
       })).organize(value);
     },
-      summarizeSources: async () => ({ summaries: {}, run: {} }) as any,
-      synthesizeReport: async () => ({ report: "", limitations: [], run: {} }) as any,
-  };
+  } as unknown as DiscussionOrganizer;
   const organizer = new FallbackDiscussionOrganizer(live, new FakeDiscussionOrganizer());
   await organizer.organize(input);
   fail = true;
@@ -98,9 +95,7 @@ it("uses CACHE provenance after a live result is cached", async () => {
       if (fail) throw new LLMAdapterError("LLM_TIMEOUT", "timeout");
       return await new FakeDiscussionOrganizer().organize(input);
     },
-      summarizeSources: async () => ({ summaries: {}, run: {} }) as any,
-      synthesizeReport: async () => ({ report: "", limitations: [], run: {} }) as any,
-  };
+  } as unknown as DiscussionOrganizer;
   const organizer = new FallbackDiscussionOrganizer(live, new FakeDiscussionOrganizer());
   await organizer.organize(input);
   fail = true;

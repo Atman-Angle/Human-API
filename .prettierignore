@@ -5,3 +5,7 @@ node_modules
 .next
 out
 package-lock.json
+.codex
+产品说明计划书.md
+docs/HACKATHON_PRODUCT_PLAN.md
+docs/HACKATHON_PRODUCT_PLAN_REVIEW.md

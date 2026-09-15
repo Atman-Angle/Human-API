@@ -23,3 +23,7 @@ _check.py
 _fix_*.py
 .persist-test.mjs
 tmp_*.py
+
+*_err.txt
+*_out.txt
+

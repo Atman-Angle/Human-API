@@ -12,8 +12,7 @@ Agent 的职责不是生成更多普通答案，而是持续维护问题的 **Kn
 
 ### Golden Loop
 
-`
-进入一个 Knowledge Object
+`进入一个 Knowledge Object
   ↓
 看到目前已知什么
   ↓
@@ -29,33 +28,32 @@ Agent Re-evaluate
   ↓
 收到 Impact Receipt
   ↓
-进入 Next Frontier
-`
+进入 Next Frontier`
 
 ### 五条架构原则
 
-| 原则 | 含义 |
-|------|------|
-| **Agent owns decisions** | Agent 维护 Knowledge State、Frontier、Evidence Gap、Re-evaluation |
-| **Community owns participation** | 社区负责 Mission Lifecycle、Evidence Intake、Impact Receipt |
-| **Evidence owns credibility** | Evidence Authority 负责校验、分级、可信度判断 |
-| **Contracts own shared language** | DTO、Enum、Schema 只能来自 packages/contracts |
-| **UI only projects authority** | 前端不得自行判决 Knowledge State 或 Evidence Grade |
+| 原则                              | 含义                                                              |
+| --------------------------------- | ----------------------------------------------------------------- |
+| **Agent owns decisions**          | Agent 维护 Knowledge State、Frontier、Evidence Gap、Re-evaluation |
+| **Community owns participation**  | 社区负责 Mission Lifecycle、Evidence Intake、Impact Receipt       |
+| **Evidence owns credibility**     | Evidence Authority 负责校验、分级、可信度判断                     |
+| **Contracts own shared language** | DTO、Enum、Schema 只能来自 packages/contracts                     |
+| **UI only projects authority**    | 前端不得自行判决 Knowledge State 或 Evidence Grade                |
 
 ---
 
 ## 核心概念
 
-| 概念 | 说明 |
-|------|------|
-| **Investigation** | 对一个问题的持续知识追踪单元 |
-| **Knowledge State** | UNRESOLVED → EARLY_EVIDENCE → SUPPORTED_WITH_LIMITATIONS |
-| **Knowledge Frontier** | 当前已知什么 + 还缺什么 |
-| **Evidence Gap** | 已知内容与足够判断之间的缺口 |
-| **Gap Suitability** | MISSION_READY / NEEDS_REFRAMING / NOT_SUITABLE_FOR_HUMAN_MISSION |
-| **Mission** | 针对明确 Evidence Gap 的结构化参与请求 |
-| **Evidence Grade** | E0_OPINION / E1_FIRST_HAND / E2_ARTIFACT_BACKED |
-| **Impact Receipt** | 告知贡献者其 Observation 改变了什么、仍然缺什么 |
+| 概念                   | 说明                                                             |
+| ---------------------- | ---------------------------------------------------------------- |
+| **Investigation**      | 对一个问题的持续知识追踪单元                                     |
+| **Knowledge State**    | UNRESOLVED → EARLY_EVIDENCE → SUPPORTED_WITH_LIMITATIONS         |
+| **Knowledge Frontier** | 当前已知什么 + 还缺什么                                          |
+| **Evidence Gap**       | 已知内容与足够判断之间的缺口                                     |
+| **Gap Suitability**    | MISSION_READY / NEEDS_REFRAMING / NOT_SUITABLE_FOR_HUMAN_MISSION |
+| **Mission**            | 针对明确 Evidence Gap 的结构化参与请求                           |
+| **Evidence Grade**     | E0_OPINION / E1_FIRST_HAND / E2_ARTIFACT_BACKED                  |
+| **Impact Receipt**     | 告知贡献者其 Observation 改变了什么、仍然缺什么                  |
 
 ---
 
@@ -71,18 +69,17 @@ Agent Re-evaluate
 
 ## 技术栈
 
-| 层 | 技术 |
-|------|------|
-| **Frontend** | Next.js (React, TypeScript) |
-| **Backend API** | Node.js HTTP Server (TypeScript) |
-| **Shared Contracts** | packages/contracts — 共享 DTO、Enum、Schema |
+| 层                    | 技术                                            |
+| --------------------- | ----------------------------------------------- |
+| **Frontend**          | Next.js (React, TypeScript)                     |
+| **Backend API**       | Node.js HTTP Server (TypeScript)                |
+| **Shared Contracts**  | packages/contracts — 共享 DTO、Enum、Schema     |
 | **LLM Orchestration** | Agent 驱动的 Investigation & Re-evaluation 链路 |
-| **Data Source** | 知乎公开内容 + 社区提交的第一手 Observation |
+| **Data Source**       | 知乎公开内容 + 社区提交的第一手 Observation     |
 
 ### 项目结构
 
-`
-human-api-evidence-agent/
+`human-api-evidence-agent/
 ├── apps/
 │   ├── web/          # Next.js 前端
 │   └── api/          # Node.js 后端 API
@@ -94,8 +91,7 @@ human-api-evidence-agent/
 │   ├── API_CONTRACT.md
 │   └── ...
 ├── fixtures/         # 测试 Fixture
-└── scripts/          # 工具脚本
-`
+└── scripts/          # 工具脚本`
 
 ---
 
@@ -115,10 +111,13 @@ npm install
 ### 开发
 
 `ash
+
 # 启动后端 API
+
 npm run dev --workspace=apps/api
 
 # 启动前端（另一个终端）
+
 npm run dev --workspace=apps/web
 `
 
@@ -134,8 +133,7 @@ npm run verify
 
 ## Agent 决策链路
 
-`
-Question
+`Question
   → Investigation
     → Candidate Evidence Gap
       → Gap Suitability Gate
@@ -144,14 +142,11 @@ Question
             → Human Evidence
               → Evidence Grade / Gap Match
                 → Re-evaluation
-                  → Knowledge State
-`
+                  → Knowledge State`
 
 ### Fallback 策略
 
-`
-LIVE → CACHE → GOLDEN_FIXTURE
-`
+`LIVE → CACHE → GOLDEN_FIXTURE`
 
 缓存和 Fixture 不得伪装成实时数据。
 

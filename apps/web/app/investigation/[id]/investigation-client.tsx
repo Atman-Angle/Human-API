@@ -16,7 +16,6 @@ import {
 import type {
   ChatRouteResponse,
   EvidenceIntakeResponse,
-  ImpactReceipt,
   KnowledgeObjectProjection,
 } from "@human-api/contracts";
 import {
@@ -29,7 +28,6 @@ import {
 import {
   CommunityHeader,
   ConversationDrawer,
-  Receipt,
   SourceMode,
   errorMessage,
   knowledgeLabels,
@@ -44,7 +42,6 @@ export default function InvestigationClient({ investigationId }: { investigation
   const [view, setView] = useState<KnowledgeObjectProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
-  const [receipt, setReceipt] = useState<ImpactReceipt | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [reply, setReply] = useState("");
   const [replying, setReplying] = useState(false);
@@ -70,7 +67,6 @@ export default function InvestigationClient({ investigationId }: { investigation
       .then((result) => {
         if (!cancelled) {
           setView(result);
-          setReceipt(result.impactReceipts.at(-1) ?? null);
           setError(null);
         }
       })
@@ -90,7 +86,6 @@ export default function InvestigationClient({ investigationId }: { investigation
 
   function complete(result: EvidenceIntakeResponse) {
     setJoining(false);
-    setReceipt(result.receipt);
     setAttempt((v) => v + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -203,8 +198,6 @@ export default function InvestigationClient({ investigationId }: { investigation
                   <SourceMode mode={view.provenance.search.global} />
                 </div>
               </header>
-
-              {receipt && <Receipt receipt={receipt} />}
 
               <article className="hg-knowledge-article">
                 <div className="hg-article-kicker">

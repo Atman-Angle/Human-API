@@ -115,7 +115,8 @@ function sendJson(
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "X-Request-Id": requestId,
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": "http://localhost:3001",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   });
@@ -840,7 +841,7 @@ export function createRequestHandler(dependencies: AppDependencies) {
           response,
           200,
           {
-            mission,
+            mission: { ...mission, evidenceCount: evidence.length },
             evidence,
             gap: gap ?? null,
             investigationId: investigation.id,

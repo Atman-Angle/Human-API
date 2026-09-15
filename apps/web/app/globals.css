@@ -1563,18 +1563,20 @@ a {
 .outcome-panel {
   position: relative;
   display: flex;
-  gap: 17px;
-  margin: 25px 0 31px;
-  padding: 20px 46px 20px 21px;
+  gap: 12px;
+  margin: 16px 0 24px;
+  padding: 12px 38px 12px 14px;
   background: var(--card);
-  border: 1px solid #bfe7d3;
+  border: 1px solid var(--line);
+  border-left: 3px solid #b9decf;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(18, 102, 65, 0.05);
+  box-shadow: none;
+  opacity: 0.86;
 }
 .outcome-icon {
   display: grid;
-  width: 39px;
-  height: 39px;
+  width: 28px;
+  height: 28px;
   flex: none;
   place-items: center;
   border-radius: 50%;
@@ -1598,15 +1600,15 @@ a {
   letter-spacing: 0.04em;
 }
 .outcome-copy h2 {
-  margin: 5px 0 6px;
-  font-size: 17px;
+  margin: 2px 0 3px;
+  font-size: 15px;
   letter-spacing: -0.02em;
 }
 .outcome-copy p {
   margin: 0;
   color: var(--sub);
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 12px;
+  line-height: 1.6;
 }
 .outcome-meta {
   display: flex;
@@ -3237,19 +3239,24 @@ a {
   line-height: 1.8;
 }
 .hg-receipt {
-  padding: 28px;
-  border: 1px solid #b9decf;
-  background: #f0faf5;
-  border-radius: 12px;
-  margin: 4px 0 30px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #c6d9d0;
+  background: var(--surface);
+  border-radius: 6px;
+  margin: 12px 0 22px;
+  color: var(--sub);
 }
 .hg-receipt.rejected {
-  background: #fff8ed;
-  border-color: #e9d2af;
+  background: var(--surface);
+  border-color: var(--line);
+  border-left-color: #ddc7a5;
 }
 .hg-receipt h2 {
-  font-size: 24px;
-  line-height: 1.5;
+  margin: 4px 0 6px;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.35;
 }
 .hg-receipt details {
   margin-top: 14px;

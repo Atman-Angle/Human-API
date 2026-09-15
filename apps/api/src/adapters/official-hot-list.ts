@@ -54,9 +54,9 @@ export class OfficialHotListAdapter {
     } | null;
     if (!raw || raw.Code !== 0 || !raw.Data || !Array.isArray(raw.Data.Items))
       throw searchError("UPSTREAM_INVALID_RESPONSE", "Zhihu hot list response is invalid.");
-    return HotListResponseSchema.parse({
+    const payload = {
       items: raw.Data.Items.map((item) => ({
-        title: item.Title,
+        title: item.Title?.trim(),
         url: item.Url,
         thumbnailUrl: item.ThumbnailUrl ?? "",
         summary: item.Summary ?? "",
@@ -65,6 +65,13 @@ export class OfficialHotListAdapter {
       provenance: SEARCH_PROVENANCE.LIVE,
       retrievedAt: new Date().toISOString(),
       limitations: ["热榜反映讨论热度，不代表证据质量。"],
-    });
+    };
+    const parsed = HotListResponseSchema.safeParse(payload);
+    if (!parsed.success)
+      throw searchError(
+        "UPSTREAM_INVALID_RESPONSE",
+        "Zhihu hot list response contains invalid items.",
+      );
+    return parsed.data;
   }
 }

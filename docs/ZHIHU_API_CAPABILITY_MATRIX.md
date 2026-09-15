@@ -1,4 +1,4 @@
-# 知乎开放平台能力矩阵
+﻿# 知乎开放平台能力矩阵
 
 调研日期：2026-09-14。任务：C07；文档 Owner：C；后续 Backend 接入 Owner：A。
 
@@ -22,7 +22,7 @@
 以上 Skill 文件所在目录（仅作证据定位，不作为运行依赖）：
 
 ```text
-C:/Users/李子睿Atman/.codex/skills/zhihu/
+<CODEX_SKILLS_DIR>/zhihu/
 ```
 
 官网入口：`https://developer.zhihu.com/`。本轮 web 检索/打开未返回可用正文，浏览器工具也未能建立会话，因此**未完成官网实时目录核验**。未调用收费/计额业务接口，未查询租户授权及额度，未读取密钥值。

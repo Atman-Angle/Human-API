@@ -27,3 +27,15 @@ tmp_*.py
 *_err.txt
 *_out.txt
 
+
+# Internal development documents (not for public GitHub)
+/docs/
+apps/web/docs/
+AGENTS.md
+apps/web/AGENTS.md
+CONTRIBUTING.md
+FINAL_DEMO_QA_REPORT.md
+README_FIRST.md
+TASKS.md
+产品说明计划书.md
+产品说明书评价.md
